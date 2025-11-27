@@ -1,6 +1,6 @@
-# QQQM/QLD/TQQQ 레버리지 전환 기본 전략
+# QQQM/QLD/TQQQ 레버리지 전환 백테스트
 
-기초적인 추세·변동성 기반 전환 전략 코드입니다. 시그널은 QQQ(또는 QQQM) 종가로 계산하고, 조건에 따라 QQQM/QLD/TQQQ 중 하나로 전환합니다. 자유롭게 파라미터를 바꾸며 실험하세요.
+`settings.json`에 모든 파라미터를 명시한 뒤 `backtest.py`를 실행해 로그를 생성하는 구조입니다. 기본값/자동 보정은 없으며, 필수 키가 없으면 즉시 오류를 냅니다.
 
 ## 설치
 ```bash
@@ -9,27 +9,37 @@ source .venv/bin/activate  # Windows는 .venv\\Scripts\\activate
 pip install -r requirements.txt
 ```
 
+## 설정 (필수 키)
+- `settings.json`
+  - `signal_symbol`: 시그널 계산 티커(예: QQQ)
+  - `trade_symbols`: 실제 매매 대상 티커 배열(예: QQQM, QLD, TQQQ)
+  - `ma_short`, `ma_long`: 이동평균 단기/장기 길이
+  - `vol_lookback`: 변동성 계산 기간
+  - `vol_cutoff`: 변동성 임계값
+  - `drawdown_cutoff`: 방어 진입 낙폭 기준
+  - `months_range`: 오늘 기준 과거 n개월 데이터를 백테스트 구간으로 사용
+  - `benchmarks`: 벤치마크 티커 배열
+- `config.py`
+  - `INITIAL_CAPITAL_KRW`: 초기 자본(원화). 첫 거래일 환율로 USD 환전 후 전체 기간 USD로 계산, 마지막에 KRW 환산.
+
 ## 실행
 ```bash
-python strategy.py
+python backtest.py
 ```
 
-출력: 시작/종료일, 최종 자산, CAGR, 변동성, 샤프, 최대 낙폭, 일간 승률, 마지막 매수 대상.
-
-## 주요 설정
-- `config.py`의 `SIMULATION_START_DATE`에서 백테스트 시작일(YYYY-MM-DD) 변경.
-- `strategy.py`의 `StrategyParams`에서 MA 길이, 변동성 기준, 낙폭 방어선, 초기자본 등을 수정.
+## 출력
+- 파일: `zresults/backtest_YYYY-MM-DD.log`
+  - 섹션 2: 일자별 성과(총자산, 일간/누적 수익률, 테이블 상태 BUY/HOLD/SELL/WAIT, 보유일, 가격, 수량, 금액, 손익, 비중 등)
+  - 섹션 7: 종목별 성과 요약(기여도 USD, 손익 USD/KRW, 노출일수, 거래횟수, 승률)
+  - 섹션 8: 백테스트 결과 요약(기간, 초기/최종 자산, 기간수익률, 벤치마크 수익률/CAGR, 전략 CAGR, MDD)
+- 터미널: 주요 지표 요약 출력
 
 ## 전략 개요
-- 50/200일 이동평균으로 추세 측정, 20일 연율화 변동성으로 공격/수비 결정.
-- 조건
-  - 큰 낙폭(`drawdown >= 20%`) 시 방어: `QQQM`
-  - 상승 추세 + 낮은 변동성: `TQQQ`
-  - 상승 추세(변동성 높음): `QLD`
-  - 그 외: `QQQM`
-- 일일 리밸런싱(전액 전환) 단순화 버전. 거래비용/세금 미반영.
+- 50/200일 이동평균으로 추세, 20일 변동성으로 공격/수비 결정.
+- 조건: 큰 낙폭 시 QQQM, 상승+저변동성 시 TQQQ, 상승+고변동성 시 QLD, 그 외 QQQM.
+- 일일 전액 전환, 거래비용/세금 미반영. 상태는 BUY/HOLD/SELL/WAIT로 기록.
 
 ## 유의사항
-- QQQM 데이터는 2020년 이후만 존재합니다. 시작일을 더 이르게 잡으면 사용 가능한 데이터 구간만 자동으로 사용합니다.
-- yfinance 다운로드가 필요하므로 인터넷 연결이 필요합니다.
-- 교육용 예제이며 실거래 전 반드시 추가 검증과 리스크 관리 규칙을 추가하세요.
+- QQQM 상장 이전 데이터가 없으므로 실제 시작일은 데이터/워밍업 길이에 따라 뒤로 밀릴 수 있습니다.
+- yfinance 다운로드가 필요하므로 실행 시 인터넷 연결이 필요합니다(테스트는 사용자가 직접 수행).
+- 자동 기본값이 없으므로 `settings.json`의 필수 키를 모두 채워야 합니다.
