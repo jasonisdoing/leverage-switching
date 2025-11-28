@@ -7,7 +7,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
-from logic.backtest.runner import compute_signals, pick_target
+from logic.common.signals import compute_signals, pick_target
 from logic.common.data import download_prices
 from utils.report import render_table_eaw
 

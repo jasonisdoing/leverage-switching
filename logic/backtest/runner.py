@@ -8,28 +8,8 @@ import yfinance as yf
 
 from config import BACKTEST_SLIPPAGE, INITIAL_CAPITAL_KRW
 from logic.common.data import download_fx, download_opens, download_prices, _extract_field
+from logic.common.signals import compute_signals, pick_target
 from utils.report import format_kr_money, render_table_eaw
-
-
-def compute_signals(prices: pd.Series, settings: Dict) -> pd.DataFrame:
-    df = pd.DataFrame(index=prices.index)
-    df["close"] = prices
-    df["ma_short"] = prices.rolling(settings["ma_short"]).mean()
-    df["ma_long"] = prices.rolling(settings["ma_long"]).mean()
-    df["vol"] = prices.pct_change().rolling(settings["vol_lookback"]).std() * np.sqrt(252)
-    peak = prices.cummax()
-    df["drawdown"] = prices / peak - 1.0
-    return df.dropna()
-
-
-def pick_target(row, settings: Dict) -> str:
-    if row["drawdown"] <= -settings["drawdown_cutoff"]:
-        return "QQQM"
-    if row["ma_short"] > row["ma_long"] and row["vol"] < settings["vol_cutoff"]:
-        return "TQQQ"
-    if row["ma_short"] > row["ma_long"]:
-        return "QLD"
-    return "QQQM"
 
 
 def run_backtest(
@@ -412,6 +392,17 @@ def run_backtest(
     asset_summary_lines = ["7. ========= 종목별 성과 요약 =========="]
     asset_summary_lines.extend(render_table_eaw(asset_headers, asset_rows, asset_aligns))
 
+    used_settings_lines = [
+        "3. ========= 사용된 설정값 ==========",
+        f"| 테스트 기간: 최근 {settings['months_range']}개월 (실제 {months}개월)",
+        f"| 초기 자본: {format_kr_money(INITIAL_CAPITAL_KRW)}",
+        f"| ma_short: {settings['ma_short']}",
+        f"| ma_long: {settings['ma_long']}",
+        f"| vol_lookback: {settings['vol_lookback']}",
+        f"| vol_cutoff: {settings['vol_cutoff']}%",
+        f"| drawdown_cutoff: {settings['drawdown_cutoff']}%",
+    ]
+
     return {
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),
@@ -429,4 +420,5 @@ def run_backtest(
         "bench_table_lines": bench_table_lines,
         "asset_summary_lines": asset_summary_lines,
         "bench_error": bench_error,
+        "used_settings_lines": used_settings_lines,
     }

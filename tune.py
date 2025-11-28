@@ -11,12 +11,13 @@ from logic.tune.runner import render_top_table, run_tuning
 from utils.report import render_table_eaw
 
 # 탐색 범위(필수 키만 명시, 기본값/자동 보정 없음)
+# 최근 결과를 반영해 유효 구간을 좁힌 버전
 TUNING_CONFIG: Dict[str, np.ndarray] = {
-    "ma_short": np.arange(10, 110, 10),
-    "ma_long": np.arange(100, 160, 10),
-    "vol_lookback": np.arange(10, 35, 5),
-    "vol_cutoff": np.arange(0.10, 0.50, 0.05),
-    "drawdown_cutoff": np.arange(0.01, 0.21, 0.01),
+    "ma_short": np.arange(15, 30, 5),            # 15, 20, 25
+    "ma_long": np.arange(105, 130, 5),           # 105~125
+    "vol_lookback": np.arange(10, 40, 10),       # 10, 20, 30
+    "vol_cutoff": np.array([25, 35, 45]),        # 변동성 컷(%)
+    "drawdown_cutoff": np.arange(3, 7, 1),       # 드로다운 컷(%): 3,4,5,6
 }
 
 

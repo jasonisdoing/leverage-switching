@@ -7,11 +7,11 @@
         "TQQQ"
     ],
     "backtested_date": "2025-11-28",
-    "ma_short": 50,
-    "ma_long": 120,
+    "ma_short": 20,
+    "ma_long": 115,
     "vol_lookback": 10,
-    "vol_cutoff": 0.4500000000000001,
-    "drawdown_cutoff": 0.1,
+    "vol_cutoff": 35.0,
+    "drawdown_cutoff": 4.0,
     "benchmarks": [
         {
             "ticker": "VOO",

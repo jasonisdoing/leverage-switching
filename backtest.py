@@ -35,6 +35,9 @@ def main() -> None:
         for line in report["asset_summary_lines"]:
             f.write(line + "\n")
         f.write("\n")
+        for line in report.get("used_settings_lines", []):
+            f.write(line + "\n")
+        f.write("\n")
         for line in report["summary_lines"]:
             f.write(line + "\n")
         f.write("\n")
@@ -48,6 +51,10 @@ def main() -> None:
         if k == "daily_log" or k.endswith("_lines"):
             continue
         print(f"{k}: {v}")
+    if report.get("used_settings_lines"):
+        print("\n".join(report["used_settings_lines"]))
+    # 콘솔에 종목별 성과 요약
+    print("\n".join(report["asset_summary_lines"]))
     # 요약 섹션 콘솔 출력
     print("\n".join(report["summary_lines"]))
     if report.get("bench_table_lines"):
