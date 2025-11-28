@@ -23,7 +23,8 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     if signal_df.empty:
         raise ValueError("시그널 계산에 필요한 데이터가 없습니다.")
     last_date = signal_df.index.max()
-    target = pick_target(signal_df.loc[last_date], settings)
+    last_row = signal_df.loc[last_date]
+    target = pick_target(last_row, settings)
 
     # 상태 계산: 타깃을 BUY, 나머지 WAIT
     offense = settings["trade_ticker"]
@@ -45,6 +46,23 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     daily_rets = prices[assets].pct_change()
     last_ret = daily_rets.loc[last_date] if last_date in daily_rets.index else pd.Series(dtype=float)
 
+    def _gap_message(row, price_today):
+        dd_cut = settings["drawdown_cutoff"]
+        dd_cut = dd_cut / 100 if dd_cut > 1 else dd_cut
+        # 드로다운 기준
+        if row["drawdown"] <= -dd_cut:
+            needed_dd = (dd_cut + row["drawdown"]) * -1  # 양수 필요 상승률(고점 대비)
+            return f"드로다운 {row['drawdown']*100:+.2f}% (임계 {-dd_cut*100:.2f}%, 추가 필요 ≈ {needed_dd*100:+.2f}% QQQ)"
+        # MA 역전 근사: 오늘 가격이 얼마면 단기>장기 되는지 추정
+        # 새 단기/장기 평균을 오늘 가격으로 채웠다고 가정하는 근사
+        ma_s = settings["ma_short"]
+        ma_l = settings["ma_long"]
+        # 단기 역전 필요치(근사)
+        target_short = row["ma_long"] * ma_s - row["ma_short"] * (ma_s - 1)
+        needed_short = (target_short - price_today) / price_today * 100
+        gap = (row["ma_short"] / row["ma_long"] - 1) * 100
+        return f"MA 괴리 {gap:+.2f}% (근사 필요 상승 ≈ {needed_short:+.2f}% QQQ)"
+
     # 테이블 구성
     headers = [
         "#",
@@ -64,6 +82,14 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
         else:
             price = prices.at[last_date, sym]
             ret = last_ret.get(sym, 0.0) if not last_ret.empty else 0.0
+        note = ""
+        if sym == target:
+            note = "타깃"
+        elif sym == offense:
+            # offense 티커 문구에 추가 조건 설명
+            note = _gap_message(last_row, price if sym != "CASH" else 1.0)
+        elif sym == defense and defense != "CASH":
+            note = "방어"
         rows.append(
             [
                 str(idx),
@@ -72,7 +98,7 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
                 "-",
                 f"{ret*100:+.2f}%",
                 f"{price:,.2f}",
-                "타깃" if sym == target else "",
+                note,
             ]
         )
 
