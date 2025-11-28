@@ -92,18 +92,14 @@ def run_tuning(
     combos: List[Dict] = []
     for ma_s in tuning_config["ma_short"]:
         for ma_l in tuning_config["ma_long"]:
-            for vol_lb in tuning_config["vol_lookback"]:
-                for vol_cut in tuning_config["vol_cutoff"]:
-                    for dd_cut in tuning_config["drawdown_cutoff"]:
-                        combos.append(
-                            {
-                                "ma_short": int(ma_s),
-                                "ma_long": int(ma_l),
-                                "vol_lookback": int(vol_lb),
-                                "vol_cutoff": float(vol_cut),
-                                "drawdown_cutoff": float(dd_cut),
-                            }
-                        )
+            for dd_cut in tuning_config["drawdown_cutoff"]:
+                combos.append(
+                    {
+                        "ma_short": int(ma_s),
+                        "ma_long": int(ma_l),
+                        "drawdown_cutoff": float(dd_cut),
+                    }
+                )
 
     total_cases = len(combos)
     workers = max_workers or cpu_count() or 1
@@ -142,12 +138,10 @@ def run_tuning(
     return results, {"start_ts": start_ts, "total": total_cases}
 
 
-def render_top_table(results: List[Dict], top_n: int = 20) -> List[str]:
+def render_top_table(results: List[Dict], top_n: int = 100) -> List[str]:
     headers = [
         "ma_short",
         "ma_long",
-        "vol_lookback",
-        "vol_cutoff",
         "drawdown_cutoff",
         "CAGR(%)",
         "MDD(%)",
@@ -162,8 +156,6 @@ def render_top_table(results: List[Dict], top_n: int = 20) -> List[str]:
             [
                 str(p["ma_short"]),
                 str(p["ma_long"]),
-                str(p["vol_lookback"]),
-                f"{p['vol_cutoff']:.2f}",
                 f"{p['drawdown_cutoff']:.2f}",
                 f"{row['cagr']*100:.2f}",
                 f"{row['mdd']*100:.2f}",

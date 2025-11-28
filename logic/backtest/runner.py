@@ -32,21 +32,26 @@ def run_backtest(
     opens = opens.loc[common_index]
     signal_df = signal_df.loc[common_index]
 
-    returns = opens[settings["trade_symbols"]].pct_change().dropna()
-    if returns.empty:
+    # 수익률 데이터를 시초가 기준으로 정렬
+    returns = opens[settings["trade_symbols"]].pct_change()
+    common_index = signal_df.index.intersection(returns.index)
+    signal_df = signal_df.loc[common_index]
+    returns = returns.loc[common_index]
+    if returns.dropna().empty:
         raise ValueError("수익률 데이터가 비어 있습니다. 가격/기간 설정을 확인하세요.")
-    signal_df = signal_df.loc[returns.index]
     signal_df["target"] = signal_df.apply(lambda row: pick_target(row, settings), axis=1)
 
     # 환율 데이터(원/달러)
     fx = pre_fx.copy() if pre_fx is not None else download_fx(start_bound)
-    fx = fx.reindex(returns.index, method="ffill").dropna()
+    fx = fx.reindex(common_index, method="ffill").dropna()
 
     # 초기 자본: 원화 -> 달러
-    first_date = returns.index[0]
+    first_date = common_index[0]
     init_fx = fx.loc[first_date]
-    initial_capital_usd = INITIAL_CAPITAL_KRW / init_fx
-    capital_usd = initial_capital_usd
+    cash_usd = INITIAL_CAPITAL_KRW / init_fx
+    initial_capital_usd = cash_usd
+    qty = {s: 0 for s in settings["trade_symbols"]}
+    prev_value = cash_usd
 
     equity = []
     daily_rets = []
@@ -61,27 +66,38 @@ def run_backtest(
     buy_slip = BACKTEST_SLIPPAGE.get("buy_pct", 0) / 100
     sell_slip = BACKTEST_SLIPPAGE.get("sell_pct", 0) / 100
 
-    for date, row in returns.iterrows():
+    for date in common_index:
         target = signal_df.at[date, "target"]
-        daily_ret = row[target]
 
-        # 슬리피지 적용: 전 포지션 청산 + 신규 진입을 시초가 기준 비용 반영
-        if prev_target and prev_target != target:
-            capital_usd *= 1 - sell_slip
-        if prev_target != target:
-            capital_usd *= 1 + daily_ret
-            capital_usd *= 1 - buy_slip
-        else:
-            capital_usd *= 1 + daily_ret
+        # 오늘 시초가
+        prices_today = {s: opens.at[date, s] for s in settings["trade_symbols"]}
 
-        pnl = capital_usd - (equity[-1] if equity else initial_capital_usd)
+        # 포지션 변경 시 청산
+        if prev_target and prev_target != target and prev_target != "CASH":
+            sell_price = prices_today[prev_target] * (1 - sell_slip)
+            cash_usd += qty[prev_target] * sell_price
+            qty[prev_target] = 0
 
-        equity.append(capital_usd)
+        # 매수
+        if target != "CASH":
+            buy_price = prices_today[target] * (1 + buy_slip)
+            purch_qty = int(cash_usd / buy_price)
+            if purch_qty > 0 and (prev_target != target):
+                cash_usd -= purch_qty * buy_price
+                qty[target] += purch_qty
+
+        # 평가
+        total_value = cash_usd + sum(qty[s] * prices_today[s] for s in settings["trade_symbols"])
+        daily_ret = (total_value - prev_value) / prev_value if prev_value != 0 else 0.0
+        pnl = total_value - prev_value
+        prev_value = total_value
+
+        equity.append(total_value)
         daily_rets.append(daily_ret)
 
         # 보유일/노출일 및 티커별 기여도
         for sym in settings["trade_symbols"]:
-            if sym == target:
+            if sym == target and qty[sym] > 0:
                 hold_days[sym] += 1
                 asset_exposure_days[sym] += 1
                 asset_pnl[sym] += pnl
@@ -93,9 +109,16 @@ def run_backtest(
             else:
                 hold_days[sym] = 0
 
-        weights = {s: (1.0 if s == target else 0.0) for s in settings["trade_symbols"]}
-        cash_value = 0.0
-        total_value = capital_usd + cash_value
+        if target == "CASH":
+            weights = {s: 0.0 for s in settings["trade_symbols"]}
+            cash_value = cash_usd
+            total_value = cash_usd
+        else:
+            position_value = {s: qty[s] * prices_today[s] for s in settings["trade_symbols"]}
+            total_pos = sum(position_value.values())
+            total_value = cash_usd + total_pos
+            weights = {s: (position_value[s] / total_value if total_value > 0 else 0.0) for s in settings["trade_symbols"]}
+            cash_value = cash_usd
         fx_today = fx.loc[date]
         krw_value = total_value * fx_today
 
@@ -156,11 +179,11 @@ def run_backtest(
 
         # 자산 행들
         for idx, sym in enumerate(settings["trade_symbols"], start=2):
-            price = prices.at[date, sym]
-            ret = row[sym]
+            price = prices_today[sym]
+            ret = returns.at[date, sym] if sym in returns.columns else 0.0
             weight = weights[sym]
-            position_value = total_value * weight
-            qty = position_value / price if price > 0 else 0.0
+            position_value = qty[sym] * price
+            qty_disp = qty[sym]
 
             if sym == target and prev_target != sym:
                 state = "BUY"
@@ -186,7 +209,7 @@ def run_backtest(
                     str(hold_days[sym]),
                     f"{price:,.2f}",
                     f"{ret:+.2%}",
-                    f"{qty:,.4f}",
+                    f"{qty_disp:,.0f}",
                     f"{position_value:,.2f}",
                     f"{eval_pnl:,.2f}",
                     f"{eval_pct*100:+.2f}%",
@@ -398,9 +421,8 @@ def run_backtest(
         f"| 초기 자본: {format_kr_money(INITIAL_CAPITAL_KRW)}",
         f"| ma_short: {settings['ma_short']}",
         f"| ma_long: {settings['ma_long']}",
-        f"| vol_lookback: {settings['vol_lookback']}",
-        f"| vol_cutoff: {settings['vol_cutoff']}%",
         f"| drawdown_cutoff: {settings['drawdown_cutoff']}%",
+        f"| defense_asset: {settings['defense_asset']}",
     ]
 
     return {

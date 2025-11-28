@@ -14,8 +14,6 @@ pip install -r requirements.txt
   - `signal_symbol`: 시그널 계산 티커(예: QQQM)
   - `trade_symbols`: 실제 매매 대상 티커 배열(예: QQQM, QLD, TQQQ)
   - `ma_short`, `ma_long`: 이동평균 단기/장기 길이
-  - `vol_lookback`: 변동성 계산 기간
-  - `vol_cutoff`: 변동성 임계값(% 단위, 1~99 입력)
   - `drawdown_cutoff`: 방어 진입 낙폭 기준(% 단위, 1~99 입력)
   - `months_range`: 오늘 기준 과거 n개월 데이터를 백테스트 구간으로 사용
   - `benchmarks`: 벤치마크 티커 배열

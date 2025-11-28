@@ -7,10 +7,9 @@ from typing import Dict, List
 REQUIRED_KEYS: List[str] = [
     "signal_symbol",
     "trade_symbols",
+    "defense_asset",
     "ma_short",
     "ma_long",
-    "vol_lookback",
-    "vol_cutoff",
     "drawdown_cutoff",
     "benchmarks",
     "months_range",

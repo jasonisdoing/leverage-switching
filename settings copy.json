@@ -1,14 +1,15 @@
 {
     "months_range": 60,
-    "signal_symbol": "QQQ",
+    "signal_symbol": "QQQM",
     "trade_symbols": [
+        "QQQM",
+        "QLD",
         "TQQQ"
     ],
-    "defense_asset": "CASH",
-    "backtested_date": "2025-11-28",
-    "ma_short": 40,
+    "backtested_date": "2025-11-28 08:30",
+    "ma_short": 50,
     "ma_long": 120,
-    "drawdown_cutoff": 2.0,
+    "drawdown_cutoff": 0.1,
     "benchmarks": [
         {
             "ticker": "VOO",
