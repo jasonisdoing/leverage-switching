@@ -46,24 +46,36 @@ def _extract_field(data: pd.DataFrame, field: str, tickers: List[str]) -> pd.Dat
 
 
 def download_prices(settings: Dict, start) -> pd.DataFrame:
-    tickers = list(set(settings["trade_symbols"] + [settings["signal_symbol"]]))
+    tickers = {settings["trade_ticker"], settings["signal_ticker"]}
+    if settings["defense_ticker"] != "CASH":
+        tickers.add(settings["defense_ticker"])
+    tickers = list(tickers)
     data = yf.download(tickers, start=start, auto_adjust=True, progress=False)
     if data is None or len(data) == 0:
         raise ValueError(f"가격 데이터를 받아오지 못했습니다: {tickers}")
     prices = _extract_field(data, "Close", tickers)
-    prices = prices.dropna(subset=settings["trade_symbols"] + [settings["signal_symbol"]])
+    needed = [settings["trade_ticker"], settings["signal_ticker"]]
+    if settings["defense_ticker"] != "CASH":
+        needed.append(settings["defense_ticker"])
+    prices = prices.dropna(subset=needed)
     if prices.empty:
         raise ValueError(f"가격 데이터가 비어 있습니다: {tickers}")
     return prices
 
 
 def download_opens(settings: Dict, start) -> pd.DataFrame:
-    tickers = list(set(settings["trade_symbols"] + [settings["signal_symbol"]]))
+    tickers = {settings["trade_ticker"], settings["signal_ticker"]}
+    if settings["defense_ticker"] != "CASH":
+        tickers.add(settings["defense_ticker"])
+    tickers = list(tickers)
     data = yf.download(tickers, start=start, auto_adjust=True, progress=False)
     if data is None or len(data) == 0:
         raise ValueError(f"시가 데이터를 받아오지 못했습니다: {tickers}")
     opens = _extract_field(data, "Open", tickers)
-    opens = opens.dropna(subset=settings["trade_symbols"] + [settings["signal_symbol"]])
+    needed = [settings["trade_ticker"], settings["signal_ticker"]]
+    if settings["defense_ticker"] != "CASH":
+        needed.append(settings["defense_ticker"])
+    opens = opens.dropna(subset=needed)
     if opens.empty:
         raise ValueError(f"시가 데이터가 비어 있습니다: {tickers}")
     return opens

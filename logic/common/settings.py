@@ -5,14 +5,15 @@ from pathlib import Path
 from typing import Dict, List
 
 REQUIRED_KEYS: List[str] = [
-    "signal_symbol",
-    "trade_symbols",
-    "defense_asset",
+    "signal_ticker",
+    "trade_ticker",
+    "defense_ticker",
     "ma_short",
     "ma_long",
     "drawdown_cutoff",
     "benchmarks",
     "months_range",
+    "slippage",
 ]
 
 

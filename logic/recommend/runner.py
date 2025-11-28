@@ -16,7 +16,7 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     start_bound, warmup_start, end_bound = compute_bounds(settings)
 
     prices_full = download_prices(settings, warmup_start)
-    signal_df_full = compute_signals(prices_full[settings["signal_symbol"]], settings)
+    signal_df_full = compute_signals(prices_full[settings["signal_ticker"]], settings)
     valid_index = prices_full.index[prices_full.index >= start_bound]
     prices = prices_full.loc[valid_index]
     signal_df = signal_df_full.loc[valid_index]
@@ -26,15 +26,23 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     target = pick_target(signal_df.loc[last_date], settings)
 
     # 상태 계산: 타깃을 BUY, 나머지 WAIT
+    offense = settings["trade_ticker"]
+    defense = settings["defense_ticker"]
+    assets = [offense]
+    if defense != "CASH":
+        assets.append(defense)
+
+    # 테이블에 CASH 행을 항상 포함해 현금 보유 상태를 표시
+    table_assets = ["CASH"] + assets if defense == "CASH" else assets
+
     statuses = {}
-    for sym in settings["trade_symbols"]:
-        if sym == target:
-            statuses[sym] = "BUY"
-        else:
-            statuses[sym] = "WAIT"
+    if defense == "CASH":
+        statuses["CASH"] = "HOLD" if target == "CASH" else "WAIT"
+    for sym in assets:
+        statuses[sym] = "BUY" if sym == target else "WAIT"
 
     # 일간 수익률은 전일 대비 종가 기준
-    daily_rets = prices[settings["trade_symbols"]].pct_change()
+    daily_rets = prices[assets].pct_change()
     last_ret = daily_rets.loc[last_date] if last_date in daily_rets.index else pd.Series(dtype=float)
 
     # 테이블 구성
@@ -49,14 +57,18 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     ]
     aligns = ["center", "center", "center", "right", "right", "right", "left"]
     rows: List[List[str]] = []
-    for idx, sym in enumerate(settings["trade_symbols"], start=1):
-        price = prices.at[last_date, sym]
-        ret = last_ret.get(sym, 0.0) if not last_ret.empty else 0.0
+    for idx, sym in enumerate(table_assets, start=1):
+        if sym == "CASH":
+            price = 1.0
+            ret = 0.0
+        else:
+            price = prices.at[last_date, sym]
+            ret = last_ret.get(sym, 0.0) if not last_ret.empty else 0.0
         rows.append(
             [
                 str(idx),
                 sym,
-                statuses[sym],
+                statuses.get(sym, "WAIT"),
                 "-",
                 f"{ret*100:+.2f}%",
                 f"{price:,.2f}",

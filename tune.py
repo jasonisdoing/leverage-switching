@@ -13,8 +13,8 @@ from utils.report import render_table_eaw
 # 탐색 범위(필수 키만 명시, 기본값/자동 보정 없음)
 # 최근 결과를 반영해 유효 구간을 좁힌 버전
 TUNING_CONFIG: Dict[str, np.ndarray] = {
-    "ma_short": np.arange(10, 60, 10),
-    "ma_long": np.arange(100, 160, 10),
+    "ma_short": np.arange(20, 60, 10),
+    "ma_long": np.arange(100, 150, 10),
     "drawdown_cutoff": [1, 2, 3, 4, 5],
 }
 

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from config import BACKTEST_SLIPPAGE, INITIAL_CAPITAL_KRW
+from config import INITIAL_CAPITAL_KRW
 from logic.common.data import compute_bounds, download_fx, download_opens, download_prices, _extract_field
 from logic.common.signals import compute_signals, pick_target
 from utils.report import format_kr_money, render_table_eaw
@@ -27,8 +27,14 @@ def run_backtest(
     prices_full = pre_prices.copy() if pre_prices is not None else download_prices(settings, warmup_start)
     opens_full = pre_opens.copy() if pre_opens is not None else download_opens(settings, warmup_start)
 
-    signal_df_full = compute_signals(prices_full[settings["signal_symbol"]], settings)
-    returns_full = opens_full[settings["trade_symbols"]].pct_change()
+    offense = settings["trade_ticker"]
+    defense = settings["defense_ticker"]
+    assets = [offense]
+    if defense != "CASH":
+        assets.append(defense)
+
+    signal_df_full = compute_signals(prices_full[settings["signal_ticker"]], settings)
+    returns_full = opens_full[assets].pct_change()
 
     common_index = signal_df_full.index.intersection(prices_full.index).intersection(opens_full.index).intersection(returns_full.index)
     common_index = common_index[common_index >= start_bound]
@@ -50,7 +56,7 @@ def run_backtest(
     init_fx = fx.loc[first_date]
     cash_usd = INITIAL_CAPITAL_KRW / init_fx
     initial_capital_usd = cash_usd
-    qty = {s: 0 for s in settings["trade_symbols"]}
+    qty = {s: 0 for s in assets}
     prev_value = cash_usd
 
     equity = []
@@ -79,19 +85,23 @@ def run_backtest(
             segment_lines.append(f" - 보유수량: {qty_val:,}")
             segment_lines.append(f" - 손익: ${pnl_val:,.2f}")
             segment_lines.append(f" - 손익(%): {pct_val*100:+.2f}%")
-    hold_days = {s: 0 for s in settings["trade_symbols"]}
-    asset_pnl = {s: 0.0 for s in settings["trade_symbols"]}
-    asset_exposure_days = {s: 0 for s in settings["trade_symbols"]}
-    trade_counts = {s: 0 for s in settings["trade_symbols"]}
-    win_days = {s: 0 for s in settings["trade_symbols"]}
-    trade_days = {s: 0 for s in settings["trade_symbols"]}
+    hold_days = {s: 0 for s in assets}
+    asset_pnl = {s: 0.0 for s in assets}
+    prev_pos_value = {s: 0.0 for s in assets}
+    asset_exposure_days = {s: 0 for s in assets}
+    trade_counts = {s: 0 for s in assets}
+    win_days = {s: 0 for s in assets}
+    trade_days = {s: 0 for s in assets}
     prev_target = None
-    buy_slip = BACKTEST_SLIPPAGE.get("buy_pct", 0) / 100
-    sell_slip = BACKTEST_SLIPPAGE.get("sell_pct", 0) / 100
+    slip_raw = settings["slippage"]
+    slip = slip_raw / 100 if slip_raw > 1 else slip_raw / 100
+    buy_slip = slip
+    sell_slip = slip
 
     for date in common_index:
         start_value_today = last_total_value
         target = signal_df.at[date, "target"]
+        trade_cf = {s: 0.0 for s in assets}  # 자산별 현금흐름(매수+: 자금투입, 매도-: 인출)
 
         # 세그먼트 전환 처리(전일 종료값 기준)
         if seg_target is None:
@@ -120,12 +130,13 @@ def run_backtest(
             seg_qty = qty[target] if target != "CASH" else 0
 
         # 오늘 시초가
-        prices_today = {s: opens.at[date, s] for s in settings["trade_symbols"]}
+        prices_today = {s: opens.at[date, s] for s in assets}
 
         # 포지션 변경 시 청산
         if prev_target and prev_target != target and prev_target != "CASH":
             sell_price = prices_today[prev_target] * (1 - sell_slip)
             cash_usd += qty[prev_target] * sell_price
+            trade_cf[prev_target] -= qty[prev_target] * sell_price
             qty[prev_target] = 0
 
         # 매수
@@ -134,10 +145,12 @@ def run_backtest(
             purch_qty = int(cash_usd / buy_price)
             if purch_qty > 0 and (prev_target != target):
                 cash_usd -= purch_qty * buy_price
+                trade_cf[target] += purch_qty * buy_price
                 qty[target] += purch_qty
 
         # 평가
-        total_value = cash_usd + sum(qty[s] * prices_today[s] for s in settings["trade_symbols"])
+        position_value = {s: qty[s] * prices_today[s] for s in assets}
+        total_value = cash_usd + sum(position_value.values())
         daily_ret = (total_value - prev_value) / prev_value if prev_value != 0 else 0.0
         pnl = total_value - prev_value
         prev_value = total_value
@@ -149,11 +162,15 @@ def run_backtest(
         last_total_value = total_value
 
         # 보유일/노출일 및 티커별 기여도
-        for sym in settings["trade_symbols"]:
+        for sym in assets:
+            # 포지션 가치 증감에서 거래 현금흐름을 제외해 가격 변동만 귀속
+            delta = (position_value[sym] - prev_pos_value[sym]) - trade_cf[sym]
+            asset_pnl[sym] += delta
+            prev_pos_value[sym] = position_value[sym]
+
             if sym == target and qty[sym] > 0:
                 hold_days[sym] += 1
                 asset_exposure_days[sym] += 1
-                asset_pnl[sym] += pnl
                 trade_days[sym] += 1
                 if daily_ret > 0:
                     win_days[sym] += 1
@@ -163,14 +180,14 @@ def run_backtest(
                 hold_days[sym] = 0
 
         if target == "CASH":
-            weights = {s: 0.0 for s in settings["trade_symbols"]}
+            weights = {s: 0.0 for s in assets}
             cash_value = cash_usd
             total_value = cash_usd
         else:
-            position_value = {s: qty[s] * prices_today[s] for s in settings["trade_symbols"]}
+            position_value = {s: qty[s] * prices_today[s] for s in assets}
             total_pos = sum(position_value.values())
             total_value = cash_usd + total_pos
-            weights = {s: (position_value[s] / total_value if total_value > 0 else 0.0) for s in settings["trade_symbols"]}
+            weights = {s: (position_value[s] / total_value if total_value > 0 else 0.0) for s in assets}
             cash_value = cash_usd
         fx_today = fx.loc[date]
         krw_value = total_value * fx_today
@@ -231,7 +248,8 @@ def run_backtest(
         )
 
         # 자산 행들
-        for idx, sym in enumerate(settings["trade_symbols"], start=2):
+        row_idx = 2
+        for sym in assets:
             price = prices_today[sym]
             ret = returns.at[date, sym] if sym in returns.columns else 0.0
             weight = weights[sym]
@@ -256,7 +274,7 @@ def run_backtest(
 
             rows.append(
                 [
-                    str(idx),
+                    str(row_idx),
                     sym,
                     state,
                     str(hold_days[sym]),
@@ -272,6 +290,7 @@ def run_backtest(
                     "타깃" if sym == target else "",
                 ]
             )
+            row_idx += 1
 
         table_lines = render_table_eaw(headers, rows, aligns)
 
@@ -437,18 +456,18 @@ def run_backtest(
 
     # 종목별 성과 요약
     asset_rows = []
-    for idx, sym in enumerate(["CASH"] + settings["trade_symbols"], start=1):
+    for idx, sym in enumerate(["CASH"] + assets, start=1):
         if sym == "CASH":
             pnl_usd = 0.0
             days = 0
             trades = 0
             win_rate_sym = 0.0
         else:
-            pnl_usd = asset_pnl[sym]
-            days = asset_exposure_days[sym]
-            trades = trade_counts[sym]
-            w_days = win_days[sym]
-            t_days = trade_days[sym]
+            pnl_usd = asset_pnl.get(sym, 0.0)
+            days = asset_exposure_days.get(sym, 0)
+            trades = trade_counts.get(sym, 0)
+            w_days = win_days.get(sym, 0)
+            t_days = trade_days.get(sym, 0)
             win_rate_sym = w_days / t_days * 100 if t_days > 0 else 0.0
         krw_pnl = pnl_usd * last_fx
         asset_rows.append(
@@ -545,7 +564,10 @@ def run_backtest(
         f"| ma_short: {settings['ma_short']}",
         f"| ma_long: {settings['ma_long']}",
         f"| drawdown_cutoff: {settings['drawdown_cutoff']}%",
-        f"| defense_asset: {settings['defense_asset']}",
+        f"| signal_ticker: {settings['signal_ticker']}",
+        f"| trade_ticker: {settings['trade_ticker']}",
+        f"| defense_ticker: {settings['defense_ticker']}",
+        f"| slippage: {settings['slippage']}%",
     ]
 
     return {

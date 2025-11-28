@@ -25,25 +25,12 @@ def pick_target(row, settings: Dict) -> str:
     """신호 행을 받아 매수 대상 티커를 결정합니다."""
     dd_cutoff_raw = settings["drawdown_cutoff"]
     dd_cutoff = dd_cutoff_raw / 100 if dd_cutoff_raw > 1 else dd_cutoff_raw
-    defense = settings["defense_asset"]
+    offense = settings["trade_ticker"]
+    defense = settings["defense_ticker"]
 
-    trade_syms = settings["trade_symbols"]
-
-    # 단일 티커(TQQQ) + 방어(CASH 등) 전환용
-    if len(trade_syms) == 1 and defense == "CASH":
-        if row["drawdown"] <= -dd_cutoff:
-            return defense
-        if row["ma_short"] > row["ma_long"]:
-            return trade_syms[0]
-        if row["ma_short"] > row["ma_long"]:
-            return trade_syms[0]
-        return defense
-
-    # 기존 멀티 티커 전환 로직
+    # 방어/공격 두 자산 전환 (방어가 CASH거나 ETF여도 동일 로직)
     if row["drawdown"] <= -dd_cutoff:
         return defense
     if row["ma_short"] > row["ma_long"]:
-        return "TQQQ"
-    if row["ma_short"] > row["ma_long"]:
-        return "QLD"
+        return offense
     return defense
