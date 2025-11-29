@@ -84,7 +84,7 @@ def run_backtest(
         if tgt != "CASH":
             segment_lines.append(f" - 보유수량: {qty_val:,}")
             segment_lines.append(f" - 손익: ${pnl_val:,.2f}")
-            segment_lines.append(f" - 손익(%): {pct_val*100:+.2f}%")
+            segment_lines.append(f" - 손익(%): {pct_val*100:+.4f}%")
     hold_days = {s: 0 for s in assets}
     asset_pnl = {s: 0.0 for s in assets}
     prev_pos_value = {s: 0.0 for s in assets}
@@ -102,30 +102,14 @@ def run_backtest(
         start_value_today = last_total_value
         target = signal_df.at[date, "target"]
         trade_cf = {s: 0.0 for s in assets}  # 자산별 현금흐름(매수+: 자금투입, 매도-: 인출)
+        end_val_for_seg = None
+        changed = seg_target is not None and target != seg_target
 
-        # 세그먼트 전환 처리(전일 종료값 기준)
+        # 초기 세그먼트 설정
         if seg_target is None:
             seg_target = target
             seg_start_date = date
-            seg_start_value = start_value_today
-            seg_days = 0
-            seg_qty = qty[target] if target != "CASH" else 0
-        elif target != seg_target:
-            end_value = start_value_today
-            pnl_seg = end_value - seg_start_value
-            pct_seg = (end_value / seg_start_value - 1) if seg_start_value != 0 else 0.0
-            _add_segment(
-                seg_start_date,
-                date - pd.Timedelta(days=1),
-                seg_days,
-                seg_target,
-                seg_qty,
-                pnl_seg,
-                pct_seg,
-            )
-            seg_target = target
-            seg_start_date = date
-            seg_start_value = start_value_today
+            seg_start_value = None  # 거래 후 값으로 설정
             seg_days = 0
             seg_qty = qty[target] if target != "CASH" else 0
 
@@ -138,6 +122,27 @@ def run_backtest(
             cash_usd += qty[prev_target] * sell_price
             trade_cf[prev_target] -= qty[prev_target] * sell_price
             qty[prev_target] = 0
+            end_val_for_seg = cash_usd + sum(qty[s] * prices_today[s] for s in assets)
+
+        # 세그먼트 전환 처리: 청산 후 평가액을 사용해 종료
+        if changed:
+            end_value = end_val_for_seg if end_val_for_seg is not None else start_value_today
+            pnl_seg = end_value - seg_start_value
+            pct_seg = (end_value / seg_start_value - 1) if seg_start_value != 0 else 0.0
+            _add_segment(
+                seg_start_date,
+                date,  # 전환일 포함
+                seg_days + 0,  # 전환일까지 포함한 보유일(오늘까지 이미 카운트됨)
+                seg_target,
+                seg_qty,
+                pnl_seg,
+                pct_seg,
+            )
+            seg_target = target
+            seg_start_date = date
+            seg_start_value = None  # 거래 후 값으로 설정
+            seg_days = 0
+            seg_qty = qty[target] if target != "CASH" else 0
 
         # 매수
         if target != "CASH":
@@ -154,6 +159,11 @@ def run_backtest(
         daily_ret = (total_value - prev_value) / prev_value if prev_value != 0 else 0.0
         pnl = total_value - prev_value
         prev_value = total_value
+
+        # 세그먼트 시작값을 거래 후 기준으로 설정
+        if seg_start_value is None:
+            seg_start_value = total_value
+            seg_qty = qty[target] if target != "CASH" else 0
 
         equity.append(total_value)
         daily_rets.append(daily_ret)

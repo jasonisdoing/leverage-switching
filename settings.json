@@ -4,7 +4,7 @@
     "trade_ticker": "TQQQ",
     "defense_ticker": "SGOV",
     "slippage": 0.05,
-    "backtested_date": "2025-11-28",
+    "backtested_date": "2025-11-29",
     "ma_short": 40,
     "ma_long": 120,
     "drawdown_cutoff": 2.0,
