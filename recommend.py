@@ -17,7 +17,7 @@ def main() -> None:
     write_recommend_log(report, out_path)
 
     # 콘솔 출력
-    print("\n".join(report["status_lines"]))
+    # 콘솔 출력
     print("\n=== 추천 목록 ===")
     for line in report["table_lines"]:
         print(line)

@@ -58,18 +58,8 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
             return f"DD {current_dd*100:.2f}% (컷 {threshold*100:.2f}%, 필요 {needed*100:+.2f}%)"
         return ""
 
-    # 테이블 구성
-    headers = [
-        "#",
-        "티커",
-        "상태",
-        "보유일",
-        "일간(%)",
-        "현재가",
-        "문구",
-    ]
-    aligns = ["center", "center", "center", "right", "right", "right", "left"]
-    rows: List[List[str]] = []
+    # 테이블 대신 세로형 카드 포맷 생성
+    table_lines = []
     for idx, sym in enumerate(table_assets, start=1):
         if sym == "CASH":
             price = 1.0
@@ -77,41 +67,30 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
         else:
             price = prices.at[last_date, sym]
             ret = last_ret.get(sym, 0.0) if not last_ret.empty else 0.0
+        
         note = ""
         if sym == target:
             note = "타깃"
         elif sym == offense:
-            # offense 티커 문구에 추가 조건 설명
             note = _gap_message(last_row, price if sym != "CASH" else 1.0)
         elif sym == defense and defense != "CASH":
             note = "방어"
-        rows.append(
-            [
-                str(idx),
-                sym,
-                statuses.get(sym, "WAIT"),
-                "-",
-                f"{ret*100:+.2f}%",
-                f"{price:,.2f}",
-                note,
-            ]
-        )
 
-    table_lines = render_table_eaw(headers, rows, aligns)
-
-    # 상태 요약
-    status_counts = {}
-    for st in statuses.values():
-        status_counts[st] = status_counts.get(st, 0) + 1
-
-    status_lines = ["=== 상태 요약 ==="]
-    for st, cnt in status_counts.items():
-        status_lines.append(f"  {st}: {cnt}개")
+        st = statuses.get(sym, "WAIT")
+        st_emoji = "✅️" if st in ["BUY", "HOLD"] else "⏳️"
+        
+        # 세로형 출력 생성
+        table_lines.append(f"📌 {sym}")
+        table_lines.append(f"  상태: {st} {st_emoji}")
+        table_lines.append(f"  일간: {ret*100:+.2f}%")
+        table_lines.append(f"  현재가: ${price:,.2f}")
+        if note:
+            table_lines.append(f"  비고: {note}")
+        table_lines.append("")  # 공백 라인 추가
 
     return {
         "as_of": last_date.date().isoformat(),
         "target": target,
-        "status_lines": status_lines,
         "table_lines": table_lines,
     }
 
@@ -120,7 +99,6 @@ def write_recommend_log(report: Dict, path: Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         f.write(f"추천 로그 생성: {datetime.now().isoformat()}\n")
         f.write(f"기준일: {report['as_of']}\n\n")
-        f.write("\n".join(report["status_lines"]))
-        f.write("\n\n=== 추천 목록 ===\n\n")
+        f.write("=== 추천 목록 ===\n\n")
         for line in report["table_lines"]:
             f.write(line + "\n")
