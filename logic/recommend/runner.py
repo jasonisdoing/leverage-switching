@@ -47,21 +47,16 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     last_ret = daily_rets.loc[last_date] if last_date in daily_rets.index else pd.Series(dtype=float)
 
     def _gap_message(row, price_today):
-        dd_cut = settings["drawdown_cutoff"]
-        dd_cut = dd_cut / 100 if dd_cut > 1 else dd_cut
-        # 드로다운 기준
-        if row["drawdown"] <= -dd_cut:
-            needed_dd = (dd_cut + row["drawdown"]) * -1  # 양수 필요 상승률(고점 대비)
-            return f"드로다운 {row['drawdown']*100:+.2f}% (임계 {-dd_cut*100:.2f}%, 추가 필요 ≈ {needed_dd*100:+.2f}% QQQ)"
-        # MA 역전 근사: 오늘 가격이 얼마면 단기>장기 되는지 추정
-        # 새 단기/장기 평균을 오늘 가격으로 채웠다고 가정하는 근사
-        ma_s = settings["ma_short"]
-        ma_l = settings["ma_long"]
-        # 단기 역전 필요치(근사)
-        target_short = row["ma_long"] * ma_s - row["ma_short"] * (ma_s - 1)
-        needed_short = (target_short - price_today) / price_today * 100
-        gap = (row["ma_short"] / row["ma_long"] - 1) * 100
-        return f"MA 괴리 {gap:+.2f}% (근사 필요 상승 ≈ {needed_short:+.2f}% QQQ)"
+        dd_cut_raw = settings["drawdown_cutoff"]
+        dd_cut = dd_cut_raw / 100 if dd_cut_raw > 1 else dd_cut_raw
+        threshold = -dd_cut
+        current_dd = row["drawdown"]
+
+        # 드로다운이 임계값보다 낮아서(더 많이 떨어져서) 못 사는 경우
+        if current_dd <= threshold:
+            needed = threshold - current_dd
+            return f"DD {current_dd*100:.2f}% (컷 {threshold*100:.2f}%, 필요 {needed*100:+.2f}%)"
+        return ""
 
     # 테이블 구성
     headers = [

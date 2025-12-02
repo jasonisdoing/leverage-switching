@@ -201,6 +201,7 @@ def run_backtest(
         krw_value = total_value * fx_today
 
         # 테이블 데이터 준비
+        # 테이블 데이터 준비
         headers = [
             "#",
             "티커",
@@ -212,8 +213,6 @@ def run_backtest(
             "금액",
             "평가손익",
             "평가(%)",
-            "누적손익",
-            "누적(%)",
             "비중",
             "문구",
         ]
@@ -221,8 +220,6 @@ def run_backtest(
             "center",
             "center",
             "center",
-            "right",
-            "right",
             "right",
             "right",
             "right",
@@ -246,8 +243,6 @@ def run_backtest(
                 "+0.0%",
                 f"{cash_value:,.2f}",
                 f"{cash_value:,.2f}",
-                "0",
-                "+0.0%",
                 "0",
                 "+0.0%",
                 f"{cash_value/total_value:0.1%}",
@@ -275,10 +270,21 @@ def run_backtest(
 
             eval_pnl = pnl if sym == target else 0.0
             eval_pct = ret if weight > 0 else 0.0
-            cumulative_pnl = total_value - initial_capital_usd if sym == target else 0.0
-            cumulative_pct = (
-                total_value / initial_capital_usd - 1 if sym == target else 0.0
-            )
+            
+            note = ""
+            if sym == target:
+                note = "타깃"
+            elif sym == settings["trade_ticker"] and state in ["WAIT", "SELL"]:
+                # Trade Ticker가 선택되지 않은 경우 드로다운 정보 표시
+                current_dd = signal_df.at[date, "drawdown"]
+                dd_cutoff_raw = settings["drawdown_cutoff"]
+                dd_cutoff = dd_cutoff_raw / 100 if dd_cutoff_raw > 1 else dd_cutoff_raw
+                threshold = -dd_cutoff
+                
+                # 드로다운이 임계값보다 낮아서(더 많이 떨어져서) 못 사는 경우
+                if current_dd <= threshold:
+                    needed = threshold - current_dd
+                    note = f"DD {current_dd*100:.2f}% (컷 {threshold*100:.2f}%, 필요 {needed*100:+.2f}%)"
 
             rows.append(
                 [
@@ -292,10 +298,8 @@ def run_backtest(
                     f"{position_value:,.2f}",
                     f"{eval_pnl:,.2f}",
                     f"{eval_pct*100:+.2f}%",
-                    f"{cumulative_pnl:,.2f}",
-                    f"{cumulative_pct*100:+.2f}%",
                     f"{weight:0.0%}",
-                    "타깃" if sym == target else "",
+                    note,
                 ]
             )
             row_idx += 1
