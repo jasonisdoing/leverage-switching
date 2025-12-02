@@ -13,24 +13,20 @@ from utils.report import render_table_eaw
 # 탐색 범위(필수 키만 명시, 기본값/자동 보정 없음)
 # 최근 결과를 반영해 유효 구간을 좁힌 버전
 TUNING_CONFIG: Dict[str, np.ndarray] = {
-    "ma_short": np.arange(20, 60, 10),
-    "ma_long": np.arange(60, 150, 10),
-    # "ma_short": [40],
-    # "ma_long": [120],
-    "drawdown_cutoff": [2],
+    "drawdown_cutoff": np.arange(1.0, 3.1, 0.1),
     "defense_ticker": [
-    "SCHD", "SGOV", "O", "VOO", "QQQ", "SPMO", "SPLV", "DIVO",
+    "SCHD", "SGOV", "O", "VOO", "QQQ", "SPMO", "SPLV", "DIVO", "JEPI", "DBMF", "USMV", "GLD", "GDX", "GLDM", 
     # 섹터 ETF
     # "XLE",  # 에너지
     # "XLB",  # 소재
     # "XLI",  # 산업재
-    "XLY",  # 임의소비재
-    "XLP",  # 필수소비재
+    # "XLY",  # 임의소비재
+    # "XLP",  # 필수소비재
     # "XLV",  # 헬스케어
     # "XLF",  # 금융
     # "XLK",  # 정보기술
-    "XLU",  # 유틸리티
-    "XLRE", # 리츠
+    # "XLU",  # 유틸리티
+    # "XLRE", # 리츠
     # "XLC",  # 커뮤니케이션
     # 세부 산업 ETF
     # "XME"   # 금속 & 광업 (Materials 세부 ETF)
@@ -53,10 +49,14 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"tune_{start_ts.date()}.log"
 
+    with Path("settings.json").open(encoding="utf-8") as f:
+        settings = json.load(f)
+    months_range = settings.get("months_range", "N")
+
     def write_partial(results: List[Dict], completed: int, total: int) -> None:
         # 상위 10개만 중간 저장
         results.sort(key=lambda x: x["cagr"], reverse=True)
-        table_lines = render_top_table(results, top_n=10)
+        table_lines = render_top_table(results, top_n=10, months_range=months_range)
         with out_path.open("w", encoding="utf-8") as f:
             f.write(f"실행 시각: {start_ts.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"진행률: {completed}/{total} ({completed/total*100:.1f}%)\n\n")
@@ -104,36 +104,7 @@ def main() -> None:
             json.dump(best, f, ensure_ascii=False, indent=4)
         print(f"settings.json을 최적 파라미터로 업데이트했습니다. (backtested_date={best['backtested_date']})")
 
-    pr_label = f"{meta.get('months_range', 'N')}개월 수익률(%)" if meta else "N개월 수익률(%)"
-    headers = [
-        "defense_ticker",
-        "ma_short",
-        "ma_long",
-        "drawdown_cutoff",
-        pr_label,
-        "CAGR(%)",
-        "MDD(%)",
-        "Sharpe",
-        "Vol(%)",
-    ]
-    aligns = ["right"] * len(headers)
-    rows: List[List[str]] = []
-    for row in top_n:
-        p = row["params"]
-        rows.append(
-            [
-                str(p.get("defense_ticker", "")),
-                str(p["ma_short"]),
-                str(p["ma_long"]),
-                f"{p['drawdown_cutoff']:.2f}",
-                f"{row['cagr']*100:.2f}",
-                f"{row.get('period_return',0.0)*100:.2f}",
-                f"{row['mdd']*100:.2f}",
-                f"{row['sharpe']:.2f}",
-                f"{row['vol']*100:.2f}",
-            ]
-        )
-    table_lines = render_table_eaw(headers, rows, aligns)
+    table_lines = render_top_table(results, top_n=100, months_range=months_range)
 
     end_ts = datetime.now()
     elapsed = format_seconds((end_ts - start_ts).total_seconds())

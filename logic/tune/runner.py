@@ -97,18 +97,16 @@ def run_tuning(
         raise RuntimeError(f"프리패치 단계에서 데이터 로드에 실패했습니다: {exc}") from exc
 
     combos: List[Dict] = []
-    for ma_s in tuning_config["ma_short"]:
-        for ma_l in tuning_config["ma_long"]:
-            for dd_cut in tuning_config["drawdown_cutoff"]:
-                for def_t in tuning_config["defense_ticker"]:
-                    combos.append(
-                        {
-                            "ma_short": int(ma_s),
-                            "ma_long": int(ma_l),
-                            "drawdown_cutoff": float(dd_cut),
-                            "defense_ticker": str(def_t),
-                        }
-                    )
+    combos: List[Dict] = []
+    combos: List[Dict] = []
+    for dd_cut in tuning_config["drawdown_cutoff"]:
+        for def_t in tuning_config["defense_ticker"]:
+            combos.append(
+                {
+                    "drawdown_cutoff": float(dd_cut),
+                    "defense_ticker": str(def_t),
+                }
+            )
 
     total_cases = len(combos)
     workers = max_workers or cpu_count() or 1
@@ -156,11 +154,12 @@ def run_tuning(
 
 
 def render_top_table(results: List[Dict], top_n: int = 100, months_range: int | None = None) -> List[str]:
-    pr_label = f"{months_range}개월 수익률(%)" if months_range else "N개월 수익률(%)"
+    if not months_range:
+        raise ValueError("months_range must be provided")
+    pr_label = f"{months_range}개월 수익률(%)"
     headers = [
+
         "defense_ticker",
-        "ma_short",
-        "ma_long",
         "drawdown_cutoff",
         pr_label,
         "CAGR(%)",
@@ -175,8 +174,6 @@ def render_top_table(results: List[Dict], top_n: int = 100, months_range: int | 
         rows.append(
             [
                 str(p.get("defense_ticker", "")),
-                str(p["ma_short"]),
-                str(p["ma_long"]),
                 f"{p['drawdown_cutoff']:.2f}",
                 f"{row.get('period_return', 0.0)*100:.2f}",
                 f"{row['cagr']*100:.2f}",

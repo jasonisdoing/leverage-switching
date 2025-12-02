@@ -9,7 +9,7 @@ def compute_bounds(settings: Dict, end_bound: pd.Timestamp | None = None):
     """백테스트/튜닝/추천 모두 동일한 기간 산정 로직을 사용하도록 범위를 계산."""
     end = end_bound or pd.Timestamp.today().normalize()
     start = end - pd.DateOffset(months=settings["months_range"])
-    warmup_bdays = max(settings["ma_long"] * 2 + 10, 300)
+    warmup_bdays = 300  # 고정 웜업 기간
     warmup_start = start - pd.offsets.BDay(warmup_bdays)
     return start, warmup_start, end
 

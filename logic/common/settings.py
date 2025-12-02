@@ -8,8 +8,6 @@ REQUIRED_KEYS: List[str] = [
     "signal_ticker",
     "trade_ticker",
     "defense_ticker",
-    "ma_short",
-    "ma_long",
     "drawdown_cutoff",
     "benchmarks",
     "months_range",

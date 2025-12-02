@@ -10,8 +10,6 @@ def compute_signals(prices: pd.Series, settings: Dict) -> pd.DataFrame:
     """가격 시계열로 추세/변동성/드로다운 신호를 계산합니다."""
     df = pd.DataFrame(index=prices.index)
     df["close"] = prices
-    df["ma_short"] = prices.rolling(settings["ma_short"]).mean()
-    df["ma_long"] = prices.rolling(settings["ma_long"]).mean()
 
     # 변동성 필터 제거: 변동성은 0으로 두고 사용하지 않음
     df["vol"] = 0.0
@@ -31,6 +29,6 @@ def pick_target(row, settings: Dict) -> str:
     # 방어/공격 두 자산 전환 (방어가 CASH거나 ETF여도 동일 로직)
     if row["drawdown"] <= -dd_cutoff:
         return defense
-    if row["ma_short"] > row["ma_long"]:
-        return offense
-    return defense
+    
+    # MA 조건 제거: 드로다운 조건만 만족하면 공격 자산 보유
+    return offense

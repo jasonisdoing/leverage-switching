@@ -570,8 +570,6 @@ def run_backtest(
         "3. ========= 사용된 설정값 ==========",
         f"| 테스트 기간: 최근 {settings['months_range']}개월 (실제 {months}개월)",
         f"| 초기 자본: {format_kr_money(INITIAL_CAPITAL_KRW)}",
-        f"| ma_short: {settings['ma_short']}",
-        f"| ma_long: {settings['ma_long']}",
         f"| drawdown_cutoff: {settings['drawdown_cutoff']}%",
         f"| signal_ticker: {settings['signal_ticker']}",
         f"| trade_ticker: {settings['trade_ticker']}",
