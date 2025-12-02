@@ -15,8 +15,23 @@ from utils.report import render_table_eaw
 TUNING_CONFIG: Dict[str, np.ndarray] = {
     "drawdown_buy_cutoff": np.arange(0.1, 3.1, 0.1),
     "drawdown_sell_cutoff": np.arange(0.1, 3.1, 0.1),
-    # "defense_ticker": ["SCHD", "SGOV", "O", "VOO", "QQQ", "SPMO", "SPLV", "DIVO", "JEPI", "DBMF", "USMV", "GLD", "GDX", "GLDM"]
-    "defense_ticker": ["SCHD", "SGOV", "O"],
+    "defense_ticker": [
+        "SCHD",
+        "SGOV",
+        "O",
+        "VOO",
+        "QQQ",
+        "SPMO",
+        "SPLV",
+        "DIVO",
+        "JEPI",
+        "DBMF",
+        "USMV",
+        "GLD",
+        "GDX",
+        "GLDM",
+    ],
+    # "defense_ticker": ["SCHD", "SGOV", "O"],
 }
 
 
