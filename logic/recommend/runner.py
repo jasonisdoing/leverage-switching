@@ -23,8 +23,24 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
     if signal_df.empty:
         raise ValueError("시그널 계산에 필요한 데이터가 없습니다.")
     last_date = signal_df.index.max()
+
+    # 상태 기반 로직을 위해 과거 데이터부터 순차적으로 상태 추적
+    # (백테스트와 동일하게 초기 상태는 offense로 가정)
+    prev_target = settings["trade_ticker"]
+
+    # 마지막 날짜 전까지 상태 진행
+    # (실제로는 전체를 다 돌리고 마지막 날의 target을 구하면 됨)
+    # 효율성을 위해 전체 루프를 돌림
+    targets = []
+    for idx, row in signal_df.iterrows():
+        tgt = pick_target(row, prev_target, settings)
+        targets.append(tgt)
+        prev_target = tgt
+
+    signal_df["target"] = targets
+
     last_row = signal_df.loc[last_date]
-    target = pick_target(last_row, settings)
+    target = last_row["target"]
 
     # 상태 계산: 타깃을 BUY, 나머지 WAIT
     offense = settings["trade_ticker"]
@@ -44,37 +60,28 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
 
     # 일간 수익률은 전일 대비 종가 기준
     daily_rets = prices[assets].pct_change()
-    last_ret = daily_rets.loc[last_date] if last_date in daily_rets.index else pd.Series(dtype=float)
+    last_ret = (
+        daily_rets.loc[last_date]
+        if last_date in daily_rets.index
+        else pd.Series(dtype=float)
+    )
 
     def _gap_message(row, price_today):
-        dd_cut = settings["drawdown_cutoff"]
-        dd_cut = dd_cut / 100 if dd_cut > 1 else dd_cut
-        # 드로다운 기준
-        if row["drawdown"] <= -dd_cut:
-            needed_dd = (dd_cut + row["drawdown"]) * -1  # 양수 필요 상승률(고점 대비)
-            return f"드로다운 {row['drawdown']*100:+.2f}% (임계 {-dd_cut*100:.2f}%, 추가 필요 ≈ {needed_dd*100:+.2f}% QQQ)"
-        # MA 역전 근사: 오늘 가격이 얼마면 단기>장기 되는지 추정
-        # 새 단기/장기 평균을 오늘 가격으로 채웠다고 가정하는 근사
-        ma_s = settings["ma_short"]
-        ma_l = settings["ma_long"]
-        # 단기 역전 필요치(근사)
-        target_short = row["ma_long"] * ma_s - row["ma_short"] * (ma_s - 1)
-        needed_short = (target_short - price_today) / price_today * 100
-        gap = (row["ma_short"] / row["ma_long"] - 1) * 100
-        return f"MA 괴리 {gap:+.2f}% (근사 필요 상승 ≈ {needed_short:+.2f}% QQQ)"
+        # 추천 시점의 '문구'는 보통 "왜 안 샀냐"를 설명하는 용도이므로
+        # 매수 기준(buy_cutoff)을 보여주는 것이 적절함
+        buy_cut_raw = settings["drawdown_buy_cutoff"]
+        buy_cut = buy_cut_raw / 100
+        threshold = -buy_cut
+        current_dd = row["drawdown"]
 
-    # 테이블 구성
-    headers = [
-        "#",
-        "티커",
-        "상태",
-        "보유일",
-        "일간(%)",
-        "현재가",
-        "문구",
-    ]
-    aligns = ["center", "center", "center", "right", "right", "right", "left"]
-    rows: List[List[str]] = []
+        # 드로다운이 임계값보다 낮아서(더 많이 떨어져서) 못 사는 경우
+        if current_dd <= threshold:
+            needed = threshold - current_dd
+            return f"DD {current_dd*100:.2f}% (매수컷 {threshold*100:.2f}%, 필요 {needed*100:+.2f}%)"
+        return ""
+
+    # 테이블 대신 세로형 카드 포맷 생성
+    table_lines = []
     for idx, sym in enumerate(table_assets, start=1):
         if sym == "CASH":
             price = 1.0
@@ -82,41 +89,30 @@ def run_recommend(settings: Dict) -> Dict[str, object]:
         else:
             price = prices.at[last_date, sym]
             ret = last_ret.get(sym, 0.0) if not last_ret.empty else 0.0
+
         note = ""
         if sym == target:
             note = "타깃"
         elif sym == offense:
-            # offense 티커 문구에 추가 조건 설명
             note = _gap_message(last_row, price if sym != "CASH" else 1.0)
         elif sym == defense and defense != "CASH":
             note = "방어"
-        rows.append(
-            [
-                str(idx),
-                sym,
-                statuses.get(sym, "WAIT"),
-                "-",
-                f"{ret*100:+.2f}%",
-                f"{price:,.2f}",
-                note,
-            ]
-        )
 
-    table_lines = render_table_eaw(headers, rows, aligns)
+        st = statuses.get(sym, "WAIT")
+        st_emoji = "✅️" if st in ["BUY", "HOLD"] else "⏳️"
 
-    # 상태 요약
-    status_counts = {}
-    for st in statuses.values():
-        status_counts[st] = status_counts.get(st, 0) + 1
-
-    status_lines = ["=== 상태 요약 ==="]
-    for st, cnt in status_counts.items():
-        status_lines.append(f"  {st}: {cnt}개")
+        # 세로형 출력 생성
+        table_lines.append(f"📌 {sym}")
+        table_lines.append(f"  상태: {st} {st_emoji}")
+        table_lines.append(f"  일간: {ret*100:+.2f}%")
+        table_lines.append(f"  현재가: ${price:,.2f}")
+        if note:
+            table_lines.append(f"  비고: {note}")
+        table_lines.append("")  # 공백 라인 추가
 
     return {
         "as_of": last_date.date().isoformat(),
         "target": target,
-        "status_lines": status_lines,
         "table_lines": table_lines,
     }
 
@@ -125,7 +121,6 @@ def write_recommend_log(report: Dict, path: Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         f.write(f"추천 로그 생성: {datetime.now().isoformat()}\n")
         f.write(f"기준일: {report['as_of']}\n\n")
-        f.write("\n".join(report["status_lines"]))
-        f.write("\n\n=== 추천 목록 ===\n\n")
+        f.write("=== 추천 목록 ===\n\n")
         for line in report["table_lines"]:
             f.write(line + "\n")

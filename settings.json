@@ -1,14 +1,17 @@
 {
-    "months_range": 60,
+    "months_range": 12,
     "signal_ticker": "QQQ",
     "trade_ticker": "TQQQ",
-    "defense_ticker": "SGOV",
     "slippage": 0.05,
-    "backtested_date": "2025-11-28",
-    "ma_short": 40,
-    "ma_long": 120,
-    "drawdown_cutoff": 2.0,
+    "backtested_date": "2025-12-04",
+    "defense_ticker": "GLDM",
+    "drawdown_buy_cutoff": 0.3,
+    "drawdown_sell_cutoff": 0.4,
     "benchmarks": [
+        {
+            "ticker": "SPMO",
+            "name": "모멘텀"
+        },
         {
             "ticker": "VOO",
             "name": "S&P 500"
@@ -24,6 +27,15 @@
         {
             "ticker": "TQQQ",
             "name": "Nasdaq 3배"
+        },
+        {
+            "ticker": "GLDM",
+            "name": "SPDR 금 미니 ETF"
+        },
+        {
+            "ticker": "GDX",
+            "name": "반에크 금광 ETF"
         }
-    ]
+    ],
+    "drawdown_cutoff": 1.0
 }
