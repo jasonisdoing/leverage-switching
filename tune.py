@@ -13,14 +13,7 @@ from logic.tune.runner import render_top_table, run_tuning
 TUNING_CONFIG: dict[str, np.ndarray] = {
     "drawdown_buy_cutoff": np.arange(0.1, 3.1, 0.1),
     "drawdown_sell_cutoff": np.arange(0.1, 3.1, 0.1),
-    "defense_ticker": [
-        "SCHD",
-        "SGOV",
-        "SPLV",
-        "DIVO",
-        "JEPI",
-        "GLDM",
-    ],
+    "defense_ticker": ["SCHD", "SGOV", "SPLV", "GLDM", "GDX"],
 }
 
 

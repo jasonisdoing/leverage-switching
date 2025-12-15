@@ -44,14 +44,7 @@ DEFAULT_SETTINGS = {
 TUNING_CONFIG = {
     "drawdown_buy_cutoff": np.round(np.arange(0.1, 3.1, 0.1), 1),
     "drawdown_sell_cutoff": np.round(np.arange(0.1, 3.1, 0.1), 1),
-    "defense_ticker": [
-        "SCHD",
-        "SGOV",
-        "SPLV",
-        "DIVO",
-        "JEPI",
-        "GLDM",
-    ],
+    "defense_ticker": ["SCHD", "SGOV", "SPLV", "GLDM", "GDX"],
 }
 
 
