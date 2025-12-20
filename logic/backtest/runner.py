@@ -5,14 +5,14 @@ import pandas as pd
 import yfinance as yf
 
 from config import INITIAL_CAPITAL_KRW
-from logic.common.data import (
+from logic.backtest.data import (
     _extract_field,
     compute_bounds,
     download_fx,
     download_opens,
     download_prices,
 )
-from logic.common.signals import compute_signals, pick_target
+from logic.backtest.signals import compute_signals, pick_target
 from utils.report import format_kr_money, render_table_eaw
 
 
@@ -615,6 +615,25 @@ def run_backtest(
         f"| slippage: {settings['slippage']}%",
     ]
 
+    # 추천용 추가 데이터 (마지막 날 정보)
+    last_date = signal_df.index[-1]
+    last_row = signal_df.iloc[-1]
+    last_prices = {sym: prices_full.at[last_date, sym] for sym in assets if sym in prices_full.columns}
+    last_returns = returns.iloc[-1] if not returns.empty else {}
+    current_drawdown = last_row["drawdown"]
+    buy_cutoff = -settings["drawdown_buy_cutoff"] / 100
+    needed_recovery = buy_cutoff - current_drawdown if current_drawdown < buy_cutoff else 0
+
+    recommendation_data = {
+        "last_date": last_date.date().isoformat(),
+        "last_prices": last_prices,
+        "last_returns": {sym: last_returns.get(sym, 0.0) for sym in assets},
+        "current_drawdown": current_drawdown,
+        "buy_cutoff": settings["drawdown_buy_cutoff"],
+        "sell_cutoff": settings["drawdown_sell_cutoff"],
+        "needed_recovery": needed_recovery * 100,  # 퍼센트로 변환
+    }
+
     return {
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),
@@ -637,4 +656,5 @@ def run_backtest(
         "bench_error": bench_error,
         "used_settings_lines": used_settings_lines,
         "segment_lines": segment_lines,
+        "recommendation_data": recommendation_data,
     }

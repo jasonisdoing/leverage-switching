@@ -9,13 +9,13 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
-from logic.backtest.runner import run_backtest
-from logic.common.data import (
+from logic.backtest.data import (
     _extract_field,
     compute_bounds,
     download_fx,
 )
-from logic.common.settings import load_settings
+from logic.backtest.runner import run_backtest
+from logic.backtest.settings import load_settings
 from utils.report import render_table_eaw
 
 

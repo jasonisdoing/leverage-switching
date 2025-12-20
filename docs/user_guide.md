@@ -11,67 +11,88 @@ pip install -r requirements.txt
 
 ## 2. 실행 방법
 
-### 기본 실행 (자동 튜닝 + 추천)
-가장 권장되는 실행 방법입니다. 스크립트가 알아서 최적의 파라미터를 찾고 추천을 해줍니다.
+### 워크플로우
+권장 실행 순서:
 
 ```bash
-python nasdaq_switching.py
+# 1. 튜닝 (최적 파라미터 탐색) → settings.json 업데이트
+python tune.py
+
+# 2. 백테스트 (성과 검증)
+python backtest.py
+
+# 3. 추천 (오늘의 매매 신호)
+python recommend.py
 ```
 
-**실행 과정**:
-1.  **튜닝 시작**: "최적 파라미터 탐색 중..." 메시지와 함께 진행률이 표시됩니다. (약 1~2분 소요)
-2.  **결과 출력**: 튜닝이 완료되면 최적 파라미터(CAGR, MDD 등)와 추천 테이블이 출력됩니다.
+### 각 스크립트 설명
 
-### 외부 스크립트에서 사용
-다른 파이썬 스크립트나 슬랙 봇 등에서 결과를 가져다 쓰고 싶을 때 사용합니다.
-
-```python
-from nasdaq_switching import get_result
-
-# 튜닝 및 추천 실행
-result = get_result()
-
-# 결과 활용
-print(f"추천 종목: {result['target']}")
-print(f"최적 CAGR: {result['tuning_result']['cagr']:.2f}%")
-```
+| 스크립트 | 설명 | 결과 저장 위치 |
+|----------|------|----------------|
+| `tune.py` | 최적 파라미터 탐색 (약 10초) | `zresults/tune_*.log` |
+| `backtest.py` | 전략 성과 분석 | `zresults/backtest_*.log` |
+| `recommend.py` | 오늘의 추천 | `zresults/recommend_*.log` |
 
 ## 3. 결과 해석
 
-### 추천 테이블 예시
+### 추천 출력 예시
 ```text
 === 추천 목록 ===
 📌 TQQQ
   상태: WAIT ⏳️
-  일간: +0.71%
-  현재가: $55.69
-  비고: DD -1.93% (매수컷 -0.30%, 필요 +1.63%)
+  일간: +1.03%
+  현재가: $53.52
+  비고: DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 
-📌 GLDM
+📌 GDX
   상태: BUY ✅️
-  일간: -0.07%
-  현재가: $83.27
+  일간: +0.29%
+  현재가: $87.79
   비고: 타깃
+
+
+[INFO] 기준일: 2025-12-19
+[INFO] 최종 타깃: GDX
+[INFO] 적용 파라미터: GDX / Buy 0.3% / Sell 0.4%
 ```
 
-- **상태 (Status)**:
-    - **BUY ✅️**: 현재 매수해야 할 종목 (타깃).
-    - **WAIT ⏳️**: 매수하지 않고 대기해야 할 종목.
-    - **HOLD**: (현금의 경우) 보유.
-- **비고 (Note)**:
-    - **타깃**: 최종적으로 선택된 종목.
-    - **DD ...**: 왜 이 종목을 사지 않았는지(또는 샀는지)에 대한 설명.
-        - 예: "매수컷 -0.30%, 필요 +1.63%" -> 현재 하락률이 -1.93%인데, 매수하려면 -0.30%까지 올라와야 하므로 1.63% 더 상승이 필요함.
+### 출력 항목 설명
 
-### 튜닝 결과 예시
-```text
-=== 🏆 최적 파라미터 (CAGR 기준) ===
-Defense Ticker : GLDM
-Buy Cutoff     : 0.3%
-Sell Cutoff    : 0.4%
-CAGR           : 91.25%
-MDD            : -11.01%
+| 항목 | 설명 |
+|------|------|
+| **상태** | `BUY ✅️` = 매수 대상, `WAIT ⏳️` = 대기 |
+| **일간** | 전일 대비 수익률 |
+| **현재가** | 최근 종가 |
+| **비고** | 타깃 여부 또는 매수 조건 설명 |
+
+### 비고(DD) 해석
 ```
-- **Defense Ticker**: 선정된 최적의 방어 자산.
-- **Buy/Sell Cutoff**: 최적의 스위칭 임계값.
-- **CAGR**: 해당 파라미터로 지난 12개월간 백테스트했을 때의 연평균 수익률.
+DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
+```
+- 현재 QQQ의 고점 대비 하락률: **-2.94%**
+- 매수 전환 기준: **-0.30%** (이보다 회복되면 매수)
+- 필요 회복폭: **+2.64%** (아직 2.64% 더 올라야 매수 조건 충족)
+
+## 4. 설정 파일 (`settings.json`)
+
+```json
+{
+    "months_range": 12,
+    "signal_ticker": "QQQ",
+    "trade_ticker": "TQQQ",
+    "defense_ticker": "GDX",
+    "drawdown_buy_cutoff": 0.3,
+    "drawdown_sell_cutoff": 0.4,
+    "slippage": 0.05,
+    "benchmarks": [...]
+}
+```
+
+| 키 | 설명 |
+|----|------|
+| `months_range` | 백테스트 기간 (개월) |
+| `signal_ticker` | 시그널 참조 종목 (QQQ) |
+| `trade_ticker` | 공격 자산 (TQQQ) |
+| `defense_ticker` | 방어 자산 (GDX, GLDM 등) |
+| `drawdown_buy_cutoff` | 매수 전환 기준 (%) |
+| `drawdown_sell_cutoff` | 매도 전환 기준 (%) |

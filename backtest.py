@@ -5,7 +5,7 @@ from pathlib import Path
 
 from config import INITIAL_CAPITAL_KRW
 from logic.backtest.runner import run_backtest
-from logic.common.settings import load_settings
+from logic.backtest.settings import load_settings
 
 
 def main() -> None:
