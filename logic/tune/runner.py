@@ -89,7 +89,7 @@ def _validate_defense_data_us(tuning_config: dict, start_bound) -> list[str]:
             ticker = str(d)
             name = ticker
 
-        df = yf.download(ticker, start=start_bound, progress=False)
+        df = yf.download(ticker, start=start_bound, auto_adjust=True, progress=False)
         if df is None or df.empty:
             errors.append(f"  - {ticker}({name}): 데이터 없음")
         else:
