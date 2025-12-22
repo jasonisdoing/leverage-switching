@@ -23,6 +23,9 @@ python backtest.py kor
 
 # 3. 추천 (오늘의 매매 신호)
 python recommend.py kor
+
+# 4. 추천 및 Slack 전송
+python recommend.py us --slack
 ```
 
 ### 각 스크립트 설명
@@ -32,6 +35,10 @@ python recommend.py kor
 | `tune.py` | 최적 파라미터 탐색 | `zresults/{market}/tune_*.log` |
 | `backtest.py` | 전략 성과 분석 | `zresults/{market}/backtest_*.log` |
 | `recommend.py` | 오늘의 추천 | `zresults/{market}/recommend_*.log` |
+
+### Slack 알림 옵션 (`--slack`)
+`recommend.py` 실행 시 `--slack` 옵션을 사용하면 설정된 Slack 채널로 추천 결과가 전송됩니다.
+- `.env` 파일에 `SLACK_BOT_TOKEN` 및 `TARGET_CHANNEL_ID`가 설정되어 있어야 합니다.
 
 ## 3. 결과 해석
 
@@ -109,3 +116,16 @@ DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 | `defense` | 방어 자산 객체 (ticker, name) |
 | `drawdown_buy_cutoff` | 매수 전환 기준 (%) |
 | `drawdown_sell_cutoff` | 매도 전환 기준 (%) |
+
+## 5. GitHub Actions 자동화
+매일 정해진 스케줄에 따라 서버에서 자동으로 실행되도록 설정되어 있습니다.
+
+### 스케줄 (KST 기준)
+- **오전 9:00**: 일일 데이터 마감 후 튜닝 및 추천 알림.
+- **오후 10:00**: 미국 시장 개장 전 최신 데이터 기반 추천 확인.
+
+### 필수 Secrets
+GitHub Actions 환경에서 작동하려면 Repository Secrets에 다음 항목이 등록되어야 합니다.
+- `SLACK_BOT_TOKEN`: Slack API 토큰.
+- `TARGET_CHANNEL_ID`: 알림을 받을 전용 채널 ID.
+- `LOGS_SLACK_WEBHOOK`: 코드 업데이트(Deploy) 알림용 Webhook URL.

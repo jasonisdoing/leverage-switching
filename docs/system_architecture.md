@@ -25,6 +25,12 @@
 │   │   └── settings.py     # 설정 로딩 및 포맷 정규화
 │   └── 📁 tune/            # 튜닝 로직
 │       └── runner.py       # 병렬 튜닝 및 데이터 가용성 체크
+├── 📁 utils/
+│   ├── 📄 slack.py         # Slack SDK 연동 알림 모듈
+│   └── 📄 logger.py        # 전역 로깅 및 버전 관리
+├── 📁 .github/workflows/
+│   ├── 📄 daily_recommend.yml # 일일 튜닝/추천 자동화
+│   └── 📄 deploy.yml       # 코드 업데이트 알림
 ├── 📁 zresults/            # 실행 결과 저장소
 │   ├── 📁 us/              # 미국 시장 로그
 │   └── 📁 kor/             # 한국 시장 로그
@@ -46,6 +52,12 @@
 | `data.py` | `yfinance`(미국) 및 `pykrx`(한국)를 통한 데이터 수집 |
 | `signals.py` | QQQ/KODEX나스닥100 기반 드로다운 계산 |
 | `settings.py` | 신구형 설정 포맷 호환 및 데이터 정규화 |
+
+### 유틸리티 (`utils/`)
+| 파일 | 역할 |
+|------|------|
+| `slack.py` | `slack-sdk`를 이용한 Block Kit 기반 알림 전송 |
+| `logger.py` | `APP_VERSION` 관리 및 실행 로그 기록 |
 
 ## 4. 데이터 흐름
 
