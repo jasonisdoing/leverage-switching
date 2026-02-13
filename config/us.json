@@ -1,5 +1,5 @@
 {
-    "backtested_date": "2026-02-12",
+    "backtested_date": "2026-02-13",
     "market": "us",
     "months_range": 12,
     "signal": {
@@ -15,7 +15,7 @@
         "name": "슈왑 미국 배당주 ETF"
     },
     "slippage": 0.05,
-    "drawdown_buy_cutoff": 0.3,
+    "drawdown_buy_cutoff": 0.2,
     "drawdown_sell_cutoff": 0.4,
     "benchmarks": [
         {
