@@ -1,19 +1,67 @@
 import argparse
+import json
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+from config import MARKET_SCHEDULES
 from logic.backtest.runner import run_backtest
 from logic.backtest.settings import load_settings
 from utils.slack import send_slack_recommendation
+
+
+def is_market_open(country: str) -> bool:
+    """현재 시간이 해당 국가의 거래 시간인지 확인합니다."""
+    schedule = MARKET_SCHEDULES.get(country)
+    if not schedule:
+        return True  # 스케줄 정보가 없으면 항상 열려있다고 가정 (또는 에러 처리)
+
+    tz = ZoneInfo(schedule["timezone"])
+    now = datetime.now(tz)
+
+    # 주말 체크 (월=0, ..., 일=6)
+    if now.weekday() >= 5:
+        return False
+
+    current_time = now.time()
+    return schedule["open"] <= current_time <= schedule["close"]
+
+
+def load_previous_state(country: str) -> dict:
+    """저장된 이전 추천 상태를 로드합니다."""
+    state_path = Path(f"state/last_recommendation_{country}.json")
+    if not state_path.exists():
+        return {}
+    try:
+        with state_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_current_state(country: str, state: dict) -> None:
+    """현재 추천 상태를 저장합니다."""
+    state_dir = Path("state")
+    state_dir.mkdir(exist_ok=True)
+    state_path = state_dir / f"last_recommendation_{country}.json"
+    with state_path.open("w", encoding="utf-8") as f:
+        json.dump(state, f, indent=4, ensure_ascii=False)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="추천 실행 엔트리 포인트")
     parser.add_argument("country", nargs="?", default="us", help="대상 국가 (us/kor)")
     parser.add_argument("--slack", action="store_true", help="결과를 Slack으로 전송")
+    parser.add_argument("--force", action="store_true", help="장 운영 시간이 아니어도 강제 실행")
     args = parser.parse_args()
 
     country = args.country
+
+    # 장 운영 시간 체크
+    if not args.force and not is_market_open(country):
+        print(f"[{country.upper()}] 장 운영 시간이 아닙니다. 실행을 건너뜁니다.")
+        return
+
     config_path = Path(f"config/{country}.json")
 
     if not config_path.exists():
@@ -34,6 +82,15 @@ def main() -> None:
     last_target = result["last_target"]
     rec_data = result["recommendation_data"]
     end_date = rec_data["last_date"]
+
+    # 이전 상태 로드 및 변경 여부 확인
+    prev_state = load_previous_state(country)
+    prev_target = prev_state.get("target")
+    is_changed = (prev_target is not None) and (prev_target != last_target)
+
+    # 현재 상태 저장
+    current_state = {"date": end_date, "target": last_target, "updated_at": datetime.now().isoformat()}
+    save_current_state(country, current_state)
 
     # 티커와 이름 가져오기
     offense_ticker = settings["offense_ticker"]
@@ -115,6 +172,11 @@ def main() -> None:
 
     print(f"\n추천 결과 저장: {out_path}")
 
+    if is_changed:
+        print(f"⚠️ 포지션 변경 감지: {prev_target} -> {last_target}")
+    else:
+        print(f"ℹ️ 포지션 유지: {last_target}")
+
     # Slack 알림 전송
     if args.slack:
         tuning_meta = {
@@ -129,6 +191,7 @@ def main() -> None:
             target_display=target_display,
             table_lines=table_lines,
             tuning_meta=tuning_meta,
+            is_changed=is_changed,
         )
 
 

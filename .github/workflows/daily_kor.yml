@@ -2,10 +2,9 @@ name: Daily Index Switching (KOR)
 
 on:
   schedule:
-    # 매일 UTC 00:00 (한국 시간 오전 9:00) 실행 - 한국 장 시작 시점
-    - cron: '0 0 * * *'
-    # 매일 UTC 06:00 (한국 시간 오후 3:00) 실행 - 한국 장 마감 임박
-    - cron: '0 6 * * *'
+    # 매 30분마다 실행 (월-금)
+    # 스크립트 내부에서 장 운영 시간 체크
+    - cron: '*/30 * * * 1-5'
   workflow_dispatch: # 수동 실행 활성화
 
 jobs:
@@ -43,5 +42,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add config/kor.json
+          git add state/last_recommendation_kor.json || true
           git status
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore(kor): update optimal parameters [skip ci]" && git push)
