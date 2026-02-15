@@ -22,6 +22,7 @@ def send_slack_recommendation(
     table_lines: list[str],
     tuning_meta: dict[str, Any] | None = None,
     is_changed: bool = False,
+    holding_days: int = 0,
 ) -> bool:
     """나스닥 스위칭 추천 결과를 Slack으로 전송합니다."""
     token = os.environ.get("SLACK_BOT_TOKEN")
@@ -98,13 +99,22 @@ def send_slack_recommendation(
         blocks.append({"type": "divider"})
 
     # 4. 요약 정보
-    summary_text = f"ℹ️ *기준일*: {as_of}\n🎯 *최종 타깃*: *{target_display}*"
+    # holding_days가 0이면 "신규 진입" 또는 "0일째" 등으로 표시하거나, 1일째부터 시작할 수도 있음.
+    # runner.py 로직상 당일 포함 카운트되므로 1 이상임.
+    holding_text = f"({holding_days}일째 보유중)" if holding_days > 0 else "(신규 진입)"
+    summary_text = f"ℹ️ *기준일*: {as_of}\n🎯 *최종 타깃*: *{target_display}* {holding_text}"
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
 
     # 5. 채널 맨션 (변경이 있을 때만)
     if is_changed:
         blocks.append(
-            {"type": "section", "text": {"type": "mrkdwn", "text": "<!channel> 포지션이 변경되었습니다! 확인해주세요."}}
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "<!channel> 포지션이 변경되었습니다! 확인해주세요.",
+                },
+            }
         )
 
     try:

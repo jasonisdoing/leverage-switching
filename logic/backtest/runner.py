@@ -744,4 +744,5 @@ def run_backtest(
         "used_settings_lines": used_settings_lines,
         "segment_lines": segment_lines,
         "recommendation_data": recommendation_data,
+        "holding_days": hold_days[signal_df["target"].iloc[-1]],
     }

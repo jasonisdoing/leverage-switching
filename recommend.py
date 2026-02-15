@@ -52,13 +52,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="추천 실행 엔트리 포인트")
     parser.add_argument("country", nargs="?", default="us", help="대상 국가 (us/kor)")
     parser.add_argument("--slack", action="store_true", help="결과를 Slack으로 전송")
-    parser.add_argument("--force", action="store_true", help="장 운영 시간이 아니어도 강제 실행")
+    parser.add_argument("--auto", action="store_true", help="자동 실행 모드 (장 운영 시간 체크 수행)")
     args = parser.parse_args()
 
     country = args.country
 
-    # 장 운영 시간 체크
-    if not args.force and not is_market_open(country):
+    # 자동 실행 모드일 때만 장 운영 시간 체크
+    if args.auto and not is_market_open(country):
         print(f"[{country.upper()}] 장 운영 시간이 아닙니다. 실행을 건너뜁니다.")
         return
 
@@ -192,6 +192,7 @@ def main() -> None:
             table_lines=table_lines,
             tuning_meta=tuning_meta,
             is_changed=is_changed,
+            holding_days=result.get("holding_days", 0),
         )
 
 
