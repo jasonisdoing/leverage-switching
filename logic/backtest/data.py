@@ -12,7 +12,13 @@ import yfinance as yf
 def compute_bounds(settings: dict, end_bound: pd.Timestamp | None = None):
     """백테스트/튜닝/추천 모두 동일한 기간 산정 로직을 사용하도록 범위를 계산."""
     end = end_bound or pd.Timestamp.today().normalize()
-    start = end - pd.DateOffset(months=settings["months_range"])
+
+    if "start_date" in settings:
+        start = pd.Timestamp(settings["start_date"])
+    else:
+        # 하위 호환성 (months_range가 남아있는 경우)
+        start = end - pd.DateOffset(months=settings.get("months_range", 12))
+
     warmup_bdays = 252  # 12개월 영업일 (신호 고점 계산용)
     warmup_start = start - pd.offsets.BDay(warmup_bdays)
     return start, warmup_start, end

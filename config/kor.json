@@ -1,7 +1,7 @@
 {
     "backtested_date": "2026-02-15",
     "market": "kor",
-    "months_range": 6,
+    "start_date": "2025-06-04",
     "signal": {
         "ticker": "226490",
         "name": "KODEX 코스피"
@@ -11,12 +11,12 @@
         "name": "KODEX 레버리지"
     },
     "defense": {
-        "ticker": "161510",
-        "name": "PLUS 고배당주"
+        "ticker": "140700",
+        "name": "KODEX 보험"
     },
-    "slippage": 0.25,
-    "drawdown_buy_cutoff": 1.7,
-    "drawdown_sell_cutoff": 1.8,
+    "slippage": 0.5,
+    "drawdown_buy_cutoff": 0.6,
+    "drawdown_sell_cutoff": 1.6,
     "benchmarks": [
         {
             "ticker": "226490",
@@ -33,6 +33,22 @@
         {
             "ticker": "161510",
             "name": "PLUS 고배당주"
+        },
+        {
+            "ticker": "091170",
+            "name": "KODEX 은행"
+        },
+        {
+            "ticker": "279530",
+            "name": "KODEX 고배당주"
+        },
+        {
+            "ticker": "484880",
+            "name": "SOL 금융지주플러스고배당"
+        },
+        {
+            "ticker": "140700",
+            "name": "KODEX 보험"
         }
     ]
 }

@@ -48,9 +48,15 @@ def main() -> None:
     sell_cutoff = rec_data["sell_cutoff"]
     needed_recovery = rec_data["needed_recovery"]
 
-    # 통화 기호 (한국은 원화, 미국은 달러)
     market = settings.get("market", "us")
-    currency_symbol = "₩" if market == "kor" else "$"
+    if market == "kor":
+        currency_prefix = ""
+        currency_suffix = "원"
+        price_fmt = ",.0f"
+    else:
+        currency_prefix = "$"
+        currency_suffix = ""
+        price_fmt = ",.2f"
 
     # 티커+이름 매핑
     ticker_names = {
@@ -82,7 +88,7 @@ def main() -> None:
         table_lines.append(f"📌 {display_name}")
         table_lines.append(f"  상태: {status}")
         table_lines.append(f"  일간: {ret * 100:+.2f}%")
-        table_lines.append(f"  현재가: {currency_symbol}{price:,.2f}")
+        table_lines.append(f"  현재가: {currency_prefix}{format(price, price_fmt)}{currency_suffix}")
         if note:
             table_lines.append(f"  비고: {note}")
         table_lines.append("")

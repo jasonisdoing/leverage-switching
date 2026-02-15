@@ -1,7 +1,7 @@
 {
-    "backtested_date": "2025-12-22",
+    "backtested_date": "2026-02-15",
     "market": "us",
-    "months_range": 12,
+    "start_date": "2025-09-01",
     "signal": {
         "ticker": "QQQ",
         "name": "Nasdaq 100"
@@ -11,12 +11,12 @@
         "name": "Nasdaq 3배 레버리지"
     },
     "defense": {
-        "ticker": "SPLV",
-        "name": "인베스코 S&P500 저변동 ETF"
+        "ticker": "SCHD",
+        "name": "슈왑 미국 배당주 ETF"
     },
-    "slippage": 0.05,
-    "drawdown_buy_cutoff": 0.3,
-    "drawdown_sell_cutoff": 0.4,
+    "slippage": 0.25,
+    "drawdown_buy_cutoff": 0.1,
+    "drawdown_sell_cutoff": 2.6,
     "benchmarks": [
         {
             "ticker": "SPMO",
