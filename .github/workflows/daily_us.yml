@@ -1,4 +1,4 @@
-name: Daily Recommendation (US)
+name: Daily Index Switching (US)
 
 on:
   schedule:

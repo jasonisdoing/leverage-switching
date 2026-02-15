@@ -1,4 +1,4 @@
-name: Daily Recommendation (KOR)
+name: Daily Index Switching (KOR)
 
 on:
   schedule:

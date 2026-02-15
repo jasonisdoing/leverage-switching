@@ -30,7 +30,7 @@ TUNING_CONFIG: dict[str, dict] = {
         "drawdown_sell_cutoff": np.arange(0.1, 3.1, 0.1),
         "defense": [
             # {"ticker": "379800", "name": "KODEX 미국배당커버드콜액티브"},
-            # {"ticker": "379800", "name": "KODEX 미국S&P500"},
+            # {"ticker": "379800", "name": "KODEX 미국 S&P500"},
             # {"ticker": "379810", "name": "KODEX 미국나스닥100"},
             {"ticker": "161510", "name": "PLUS 고배당주"},
             # {"ticker": "475350", "name": "RISE 버크셔포트폴리오TOP10"},

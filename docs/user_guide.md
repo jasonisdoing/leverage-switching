@@ -1,4 +1,4 @@
-# 사용자 가이드 (User Guide)
+# 사용자 가이드 (User Guide) - Index Leverage Switching
 
 ## 1. 설치 및 준비
 이 프로젝트는 Python 3.10+ 환경에서 동작합니다.
@@ -45,7 +45,7 @@ python recommend.py us --slack
 ### 추천 출력 예시 (KOR)
 ```text
 === 추천 목록 ===
-📌 418660(TIGER 미국나스닥100레버리지)
+📌 122630(KODEX 레버리지)
   상태: WAIT ⏳️
   일간: +1.03%
   현재가: 35,350원

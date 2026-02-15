@@ -26,12 +26,12 @@ jobs:
         if: ${{ success() }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"✅ nasdaq-leverage-switching 업데이트 완료 (branch: upgrade)\\nAPP_VERSION: ${{ steps.app_version.outputs.version }}\"}" \
+            --data "{\"text\":\"✅ leverage-switching 업데이트 완료 (branch: upgrade)\\nAPP_VERSION: ${{ steps.app_version.outputs.version }}\"}" \
             ${{ secrets.LOGS_SLACK_WEBHOOK }}
 
       - name: Notify Slack (Failure)
         if: ${{ failure() }}
         run: |
           curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"❌ nasdaq-leverage-switching 업데이트 실패 (branch: upgrade)\\nRepo: ${{ github.repository }}\\nCommit: ${{ github.sha }}\"}" \
+            --data "{\"text\":\"❌ leverage-switching 업데이트 실패 (branch: upgrade)\\nRepo: ${{ github.repository }}\\nCommit: ${{ github.sha }}\"}" \
             ${{ secrets.LOGS_SLACK_WEBHOOK }}
