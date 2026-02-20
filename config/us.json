@@ -1,7 +1,7 @@
 {
-    "backtested_date": "2026-02-20",
+    "backtested_date": "2026-02-15",
     "market": "us",
-    "months_range": 12,
+    "start_date": "2025-09-01",
     "signal": {
         "ticker": "QQQ",
         "name": "Nasdaq 100"
@@ -14,9 +14,9 @@
         "ticker": "SCHD",
         "name": "슈왑 미국 배당주 ETF"
     },
-    "slippage": 0.05,
-    "drawdown_buy_cutoff": 0.2,
-    "drawdown_sell_cutoff": 0.4,
+    "slippage": 0.25,
+    "drawdown_buy_cutoff": 0.1,
+    "drawdown_sell_cutoff": 2.6,
     "benchmarks": [
         {
             "ticker": "SPMO",

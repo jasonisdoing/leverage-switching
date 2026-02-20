@@ -1,11 +1,10 @@
-name: Daily Nasdaq Switching Recommendation
+name: Daily Index Switching (US)
 
 on:
   schedule:
-    # 매일 UTC 00:00 (한국 시간 오전 9:00) 실행
-    - cron: '0 0 * * *'
-    # 매일 UTC 13:00 (한국 시간 오후 10:00) 실행
-    - cron: '0 13 * * *'
+    # 매 30분마다 실행 (월-금)
+    # 스크립트 내부에서 장 운영 시간 체크
+    - cron: '*/30 * * * 1-5'
   workflow_dispatch: # 수동 실행 활성화
 
 jobs:
@@ -36,12 +35,13 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           TARGET_CHANNEL_ID: ${{ secrets.TARGET_CHANNEL_ID }}
-        run: python recommend.py us --slack
+        run: python recommend.py us --slack --auto
 
       - name: Commit and Push updated config
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add config/*.json
+          git add config/us.json
+          git add state/last_recommendation_us.json || true
           git status
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update optimal parameters [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(us): update optimal parameters [skip ci]" && git push)

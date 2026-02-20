@@ -12,7 +12,8 @@ REQUIRED_KEYS_NEW: list[str] = [
     "drawdown_buy_cutoff",
     "drawdown_sell_cutoff",
     "benchmarks",
-    "months_range",
+    # "months_range",  <-- 제거됨
+    # "start_date",    <-- 추가됨 (필수)
     "slippage",
 ]
 
@@ -23,7 +24,8 @@ REQUIRED_KEYS_OLD: list[str] = [
     "drawdown_buy_cutoff",
     "drawdown_sell_cutoff",
     "benchmarks",
-    "months_range",
+    # "months_range",
+    # "start_date",
     "slippage",
 ]
 
@@ -35,8 +37,12 @@ def load_settings(path: Path) -> dict:
     # 새 형식인지 확인
     is_new_format = "signal" in settings and isinstance(settings.get("signal"), dict)
 
+    # start_date 또는 months_range 중 하나는 있어야 함
+    if "start_date" not in settings and "months_range" not in settings:
+        raise ValueError("설정 파일에 'start_date' 또는 'months_range'가 필요합니다.")
+
     if is_new_format:
-        missing = [k for k in REQUIRED_KEYS_NEW if k not in settings]
+        missing = [k for k in REQUIRED_KEYS_NEW if k not in settings and k != "start_date" and k != "months_range"]
         if missing:
             raise ValueError(f"설정 파일에 필수 키가 없습니다: {missing}")
 
@@ -50,7 +56,7 @@ def load_settings(path: Path) -> dict:
         settings["defense_name"] = settings["defense"].get("name", settings["defense"]["ticker"])
     else:
         # 기존 형식
-        missing = [k for k in REQUIRED_KEYS_OLD if k not in settings]
+        missing = [k for k in REQUIRED_KEYS_OLD if k not in settings and k != "start_date" and k != "months_range"]
         if missing:
             raise ValueError(f"설정 파일에 필수 키가 없습니다: {missing}")
 

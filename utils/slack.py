@@ -21,6 +21,8 @@ def send_slack_recommendation(
     target_display: str,
     table_lines: list[str],
     tuning_meta: dict[str, Any] | None = None,
+    is_changed: bool = False,
+    holding_days: int = 0,
 ) -> bool:
     """나스닥 스위칭 추천 결과를 Slack으로 전송합니다."""
     token = os.environ.get("SLACK_BOT_TOKEN")
@@ -37,6 +39,14 @@ def send_slack_recommendation(
     client = WebClient(token=token)
     market_name = "🇺🇸 미국" if country.lower() == "us" else "🇰🇷 한국"
 
+    # 이모지 및 타이틀 분기
+    if is_changed:
+        header_emoji = "🚨"  # 변경 시 더 주목도 높게
+        header_text = f"{market_name} 스위칭 포지션 변경 알림"
+    else:
+        header_emoji = "📊"
+        header_text = f"{market_name} 스위칭 정기 보고"
+
     # 메시지 블록 구성
     blocks = []
 
@@ -46,7 +56,7 @@ def send_slack_recommendation(
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"{market_name} 나스닥 스위칭 전략 추천",
+                "text": f"{header_emoji} {header_text}",
                 "emoji": True,
             },
         }
@@ -54,6 +64,8 @@ def send_slack_recommendation(
 
     # 2. 최적 파라미터 정보 (최근 튜닝 결과)
     if tuning_meta:
+        # 변경 시에는 파라미터 정보보다는 변경 사실이 중요하므로 간소화하거나 그대로 둠
+        # 여기서는 유지하되 위치 조절 가능. 일단 유지.
         tuning_text = (
             f"*🏆 최적 파라미터 (CAGR 기준)*\n"
             f"• 방어 자산: {tuning_meta.get('defense_ticker', 'N/A')}\n"
@@ -87,16 +99,28 @@ def send_slack_recommendation(
         blocks.append({"type": "divider"})
 
     # 4. 요약 정보
-    summary_text = f"ℹ️ *기준일*: {as_of}\n🎯 *최종 타깃*: *{target_display}*"
+    # holding_days가 0이면 "신규 진입" 또는 "0일째" 등으로 표시하거나, 1일째부터 시작할 수도 있음.
+    # runner.py 로직상 당일 포함 카운트되므로 1 이상임.
+    holding_text = f"({holding_days}거래일째 보유중)" if holding_days > 0 else "(신규 진입)"
+    summary_text = f"ℹ️ *기준일*: {as_of}\n🎯 *최종 타깃*: *{target_display}* {holding_text}"
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
 
-    # 5. 채널 맨션
-    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "<!channel>"}})
+    # 5. 채널 맨션 (변경이 있을 때만)
+    if is_changed:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "<!channel> 포지션이 변경되었습니다! 확인해주세요.",
+                },
+            }
+        )
 
     try:
         client.chat_postMessage(
             channel=channel_id,
-            text=f"[{market_name}] 나스닥 스위칭 전략 추천 ({as_of})",
+            text=f"[{market_name}] {header_text} ({as_of})",
             blocks=blocks,
         )
         print(f" [SLACK] Slack 알림 전송 완료 (channel={channel_id})")

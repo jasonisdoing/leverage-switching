@@ -364,11 +364,10 @@ def render_top_table(
     months_range: int | None = None,
     defense_names: dict[str, str] | None = None,
 ) -> list[str]:
-    if not months_range:
-        raise ValueError("months_range must be provided")
-    if defense_names is None:
-        defense_names = {}
-    pr_label = f"{months_range}개월 수익률(%)"
+    if months_range:
+        pr_label = f"{months_range}개월 수익률(%)"
+    else:
+        pr_label = "기간 수익률(%)"
     headers = [
         "defense_ticker",
         "buy_cutoff",

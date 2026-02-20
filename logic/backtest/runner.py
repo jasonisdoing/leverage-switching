@@ -474,9 +474,15 @@ def run_backtest(
         f"| 최종 자산: {format_kr_money(final_krw)}",
         f"| 기간수익률(%): {period_return * 100:+.2f}%",
     ]
-    requested_months = settings["months_range"]
-    if months < requested_months:
-        summary_lines.append(f"| 참고: months_range {requested_months} → 실제 {months}개월 (데이터 가용 기간)")
+
+    if "months_range" in settings:
+        requested_months = settings["months_range"]
+        if months < requested_months:
+            summary_lines.append(f"| 참고: months_range {requested_months} → 실제 {months}개월 (데이터 가용 기간)")
+    else:
+        # start_date 모드
+        summary_lines.append(f"| 설정 시작일: {settings.get('start_date', 'N/A')}")
+
     bench_table_lines: list[str] = []
     bench_summary_lines: list[str] = []
     bench_error = None
@@ -530,7 +536,7 @@ def run_backtest(
         )
 
     bench_table_lines = render_table_eaw(
-        ["#", "티커", f"{settings['months_range']}개월 수익률(%)", "CAGR(%)", "MDD(%)"],
+        ["#", "티커", "기간 수익률(%)", "CAGR(%)", "MDD(%)"],
         perf_rows,
         ["center", "left", "right", "right", "right"],
     )
@@ -678,15 +684,23 @@ def run_backtest(
 
     used_settings_lines = [
         "3. ========= 사용된 설정값 ==========",
-        f"| 테스트 기간: 최근 {settings['months_range']}개월 (실제 {months}개월)",
-        f"| 초기 자본: {format_kr_money(INITIAL_CAPITAL_KRW)}",
-        f"| buy_cutoff: {settings['drawdown_buy_cutoff']}%",
-        f"| sell_cutoff: {settings['drawdown_sell_cutoff']}%",
-        f"| signal_ticker: {settings['signal_ticker']}",
-        f"| offense_ticker: {settings['offense_ticker']}",
-        f"| defense_ticker: {settings['defense_ticker']}",
-        f"| slippage: {settings['slippage']}%",
     ]
+    if "months_range" in settings:
+        used_settings_lines.append(f"| 테스트 기간: 최근 {settings['months_range']}개월 (실제 {months}개월)")
+    else:
+        used_settings_lines.append(f"| 테스트 기간: {start_date} ~ (실제 {months}개월)")
+
+    used_settings_lines.extend(
+        [
+            f"| 초기 자본: {format_kr_money(INITIAL_CAPITAL_KRW)}",
+            f"| buy_cutoff: {settings['drawdown_buy_cutoff']}%",
+            f"| sell_cutoff: {settings['drawdown_sell_cutoff']}%",
+            f"| signal_ticker: {settings['signal_ticker']}",
+            f"| offense_ticker: {settings['offense_ticker']}",
+            f"| defense_ticker: {settings['defense_ticker']}",
+            f"| slippage: {settings['slippage']}%",
+        ]
+    )
 
     # 추천용 추가 데이터 (마지막 날 정보)
     last_date = signal_df.index[-1]
@@ -730,4 +744,5 @@ def run_backtest(
         "used_settings_lines": used_settings_lines,
         "segment_lines": segment_lines,
         "recommendation_data": recommendation_data,
+        "holding_days": hold_days[signal_df["target"].iloc[-1]],
     }
