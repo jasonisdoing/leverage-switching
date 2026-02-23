@@ -28,12 +28,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Set Current Hour
-        run: echo "CURRENT_HOUR=$(date +%H)" >> $GITHUB_ENV
-
       - name: Run Tuning (US)
-        if: github.event_name == 'workflow_dispatch' || env.CURRENT_HOUR == '13'
-        run: python tune.py us
+        run: |
+          CURRENT_HOUR=$(date +%H)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] || [ "$CURRENT_HOUR" == "13" ]; then
+            python tune.py us
+          fi
 
       - name: Run Recommendation (US) and Send Slack
         env:
