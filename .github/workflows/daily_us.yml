@@ -49,4 +49,4 @@ jobs:
           git add config/us.json
           git add state/last_recommendation_us.json || true
           git status
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(us): update optimal parameters [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(us): update optimal parameters [skip ci]" && git pull --rebase origin main && git push)
