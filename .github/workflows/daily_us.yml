@@ -31,7 +31,7 @@ jobs:
       - name: Run Tuning (US)
         run: |
           CURRENT_HOUR=$(date +%H)
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] || [ "$CURRENT_HOUR" == "13" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] || [ "$CURRENT_HOUR" == "15" ]; then
             python tune.py us
           fi
 

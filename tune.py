@@ -34,6 +34,7 @@ TUNING_CONFIG: dict[str, dict] = {
             {"ticker": "279530", "name": "KODEX 고배당주"},
             {"ticker": "484880", "name": "SOL 금융지주플러스고배당"},
             {"ticker": "140700", "name": "KODEX 보험"},
+            {"ticker": "117460", "name": "KODEX 에너지화학"},
         ],
     },
 }
