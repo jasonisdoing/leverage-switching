@@ -155,6 +155,11 @@ def main() -> None:
         defense_ticker: defense_name,
     }
 
+    # 경고 모드에서 전환 전 보유 데이터 추출
+    pre_switch_data = result.get("pre_switch_data", {})
+    pre_switch_hold_days = pre_switch_data.get("hold_days", {})
+    pre_switch_cum_return = pre_switch_data.get("cum_return")
+
     # 추천 출력 생성
     table_lines = []
     assets = [offense_ticker, defense_ticker]
@@ -165,6 +170,11 @@ def main() -> None:
         price = last_prices.get(sym, 0.0)
         day_ret = daily_returns.get(sym, 0.0)
         c_ret = cum_returns.get(sym, 0.0)
+
+        # 경고 모드에서 현재 보유 종목의 누적 수익률은 전환 전 데이터 사용
+        if is_warning and warning_target and sym == display_target:
+            if pre_switch_cum_return is not None:
+                c_ret = pre_switch_cum_return
 
         # 비고(Note) 로직: 타깃/매매 조건 표시
         sell_cutoff_val = -sell_cutoff / 100
@@ -198,9 +208,13 @@ def main() -> None:
         # 누적 수익률 뒤에 보유 정보 추가
         cum_text = f"  누적: {c_ret * 100:+.2f}%"
         if sym == display_target:
-            holding_days = result.get("holding_days", 0)
-            if holding_days > 0:
-                cum_text += f"({holding_days}거래일째 보유중)"
+            # 경고 모드에서는 전환 전 보유일 사용
+            if is_warning and warning_target:
+                h_days = pre_switch_hold_days.get(sym, 0)
+            else:
+                h_days = result.get("holding_days", 0)
+            if h_days > 0:
+                cum_text += f"({h_days}거래일째 보유중)"
         else:
             cum_text += "(미보유)"
         table_lines.append(cum_text)
