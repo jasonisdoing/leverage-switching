@@ -107,9 +107,23 @@ def main() -> None:
     prev_target = prev_state.get("target")
     is_changed = (prev_target is not None) and (prev_target != last_target)
 
-    # 현재 상태 저장
-    current_state = {"date": end_date, "target": last_target, "updated_at": datetime.now().isoformat()}
-    save_current_state(country, current_state)
+    # 경고 모드에서는 상태를 저장하지 않음 (장 마감 후 확정 시에만 저장)
+    if not is_warning:
+        current_state = {
+            "date": end_date,
+            "target": last_target,
+            "updated_at": datetime.now().isoformat(),
+        }
+        save_current_state(country, current_state)
+
+    # 경고 모드에서는 현재 보유 종목(prev_target) 기준으로 표시,
+    # 시그널이 가리키는 종목(last_target)은 잠재적 변경으로 안내
+    if is_warning and prev_target is not None:
+        display_target = prev_target  # 현재 보유 종목
+        warning_target = last_target if is_changed else None  # 전환 가능 종목
+    else:
+        display_target = last_target
+        warning_target = None
 
     # 티커와 이름 가져오기
     offense_ticker = settings["offense_ticker"]
@@ -156,8 +170,8 @@ def main() -> None:
         sell_cutoff_val = -sell_cutoff / 100
         needed_drop = (current_dd - sell_cutoff_val) * 100 if current_dd > sell_cutoff_val else 0
 
-        # 상태별 이모지 및 텍스트 결정
-        if sym == last_target:
+        # 상태별 이모지 및 텍스트 결정 (display_target 기준)
+        if sym == display_target:
             status_text = "BUY"
             status_emoji = "✅️"
         else:
@@ -167,7 +181,7 @@ def main() -> None:
         signal_name = settings.get("signal", {}).get("name", "신호")
         note = ""
         if sym == offense_ticker:
-            if last_target == offense_ticker:
+            if display_target == offense_ticker:
                 # 공격 자산 보유 중: 얼마나 더 하락하면 매도하는지 표시
                 note = f"{signal_name}가 {needed_drop:.2f}% 더 하락 시 매도"
             else:
@@ -183,7 +197,7 @@ def main() -> None:
 
         # 누적 수익률 뒤에 보유 정보 추가
         cum_text = f"  누적: {c_ret * 100:+.2f}%"
-        if sym == last_target:
+        if sym == display_target:
             holding_days = result.get("holding_days", 0)
             if holding_days > 0:
                 cum_text += f"({holding_days}거래일째 보유중)"
@@ -196,9 +210,15 @@ def main() -> None:
             table_lines.append(f"  비고: {note}")
         table_lines.append("")
 
-    # 타깃 이름
-    target_name = ticker_names.get(last_target, last_target)
-    target_display = f"{last_target}({target_name})" if target_name != last_target else last_target
+    # 타깃 이름 (현재 보유 기준)
+    target_name = ticker_names.get(display_target, display_target)
+    target_display = f"{display_target}({target_name})" if target_name != display_target else display_target
+
+    # 경고 모드에서 전환 가능 종목 이름
+    warning_target_display = None
+    if warning_target:
+        wt_name = ticker_names.get(warning_target, warning_target)
+        warning_target_display = f"{warning_target}({wt_name})" if wt_name != warning_target else warning_target
 
     # 로그 파일 저장: zresults/{country}/
     out_dir = Path(f"zresults/{country}")
@@ -256,6 +276,7 @@ def main() -> None:
             is_changed=is_changed,
             holding_days=result.get("holding_days", 0),
             is_warning=is_warning,
+            warning_target_display=warning_target_display,
         )
 
 
