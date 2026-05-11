@@ -28,6 +28,25 @@ def _inject_cash_column(df: pd.DataFrame, settings: dict) -> pd.DataFrame:
     return df.loc[:, ordered]
 
 
+def _validate_positive_market_data(df: pd.DataFrame, *, label: str, settings: dict) -> pd.DataFrame:
+    """시가/종가에 0 이하 값이 섞여 있으면 즉시 중단한다."""
+    market_tickers = [ticker for ticker in _market_tickers(settings) if ticker in df.columns]
+    if not market_tickers:
+        return df
+
+    invalid_mask = df[market_tickers] <= 0
+    if invalid_mask.any().any():
+        invalid_points = []
+        for ticker in market_tickers:
+            ticker_invalid = invalid_mask.index[invalid_mask[ticker]]
+            if len(ticker_invalid) > 0:
+                invalid_points.append(f"{ticker}@{ticker_invalid[-1].date()}")
+        joined = ", ".join(invalid_points[:5])
+        raise ValueError(f"{label} 데이터에 0 이하 값이 있습니다: {joined}")
+
+    return df
+
+
 def compute_bounds(settings: dict, end_bound: pd.Timestamp | None = None):
     """백테스트/튜닝/추천 모두 동일한 기간 산정 로직을 사용하도록 범위를 계산."""
     end = end_bound or pd.Timestamp.today().normalize()
@@ -87,6 +106,7 @@ def _download_prices_us(settings: dict, start) -> pd.DataFrame:
     prices = _inject_cash_column(prices, settings)
     needed = _requested_tickers(settings)
     prices = prices.dropna(subset=needed)
+    prices = _validate_positive_market_data(prices, label="가격", settings=settings)
     if prices.empty:
         raise ValueError(f"가격 데이터가 비어 있습니다: {_requested_tickers(settings)}")
     return prices
@@ -102,6 +122,7 @@ def _download_opens_us(settings: dict, start) -> pd.DataFrame:
     opens = _inject_cash_column(opens, settings)
     needed = _requested_tickers(settings)
     opens = opens.dropna(subset=needed)
+    opens = _validate_positive_market_data(opens, label="시가", settings=settings)
     if opens.empty:
         raise ValueError(f"시가 데이터가 비어 있습니다: {_requested_tickers(settings)}")
     return opens
@@ -148,6 +169,7 @@ def _download_prices_kor(settings: dict, start) -> pd.DataFrame:
     prices.index = pd.to_datetime(prices.index)
     prices = _inject_cash_column(prices, settings)
     prices = prices.dropna()
+    prices = _validate_positive_market_data(prices, label="가격", settings=settings)
     if prices.empty:
         raise ValueError(f"가격 데이터가 비어 있습니다: {_requested_tickers(settings)}")
     return prices
@@ -177,6 +199,7 @@ def _download_opens_kor(settings: dict, start) -> pd.DataFrame:
     opens.index = pd.to_datetime(opens.index)
     opens = _inject_cash_column(opens, settings)
     opens = opens.dropna()
+    opens = _validate_positive_market_data(opens, label="시가", settings=settings)
     if opens.empty:
         raise ValueError(f"시가 데이터가 비어 있습니다: {_requested_tickers(settings)}")
     return opens
