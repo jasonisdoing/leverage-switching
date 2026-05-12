@@ -28,8 +28,8 @@ TUNING_CONFIG: dict[str, dict] = {
         ],
     },
     "kor": {
-        "drawdown_buy_cutoff": np.arange(0.5, 5.5, 0.5),
-        "drawdown_sell_cutoff": np.arange(0.5, 5.5, 0.5),
+        "drawdown_buy_cutoff": np.arange(0.5, 3.5, 0.5),
+        "drawdown_sell_cutoff": np.arange(0.5, 3.5, 0.5),
         "defense": [
             {"ticker": "CASH", "name": "현금"},
             # {"ticker": "161510", "name": "PLUS 고배당주"},
