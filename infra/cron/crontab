@@ -21,7 +21,7 @@
 #   logs/cron/leverage_kor.log, logs/cron/leverage_us.log 에 append
 #
 # === 스케줄 정책 ===
-#  각 국가 거래일에 하루 3회 실행
+#  각 국가 거래일에 하루 3회 실행하며, 매번 튜닝 후 추천을 실행
 #  (장 시작 30분 후 / 장 마감 30분 전 / 장 마감 1시간 후).
 #  거래일 제한은 "현지 기준 월~금" 으로 근사. 공휴일까지 정밀 제외하려면
 #  recommend.py 에서 거래일 체크 로직을 추가할 것.
@@ -48,14 +48,14 @@ APP_TYPE=leverage-switching
 
 # ── 한국 시장 (월-금) ─────────────────────────────────────────────
 # 09:30 KST - 장 시작 30분 후 (장중)
-30 9 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
+30 9 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python infra/cron/run_tune_then_recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
 
 # 15:00 KST - 장 마감 30분 전 (장중)
-0 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
+0 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python infra/cron/run_tune_then_recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
 
 # 16:30 KST - 장 마감 1시간 후 (장 마감 후)
-30 16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
+30 16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_kor $APP_DIR/.venv/bin/python infra/cron/run_tune_then_recommend.py kor --slack >> logs/cron/leverage_kor.log 2>&1
 
 # ── 미국 시장 (ET 월-금 & ET 시각 가드로 DST 자동 적용) ────────────
 # 매 30분마다 체크하여 ET 요일이 1~5(월-금)이고 시각이 10:00/15:30/17:00 일 때만 실행.
-0,30 * * * * ET_H=$(TZ=America/New_York date +\%H:\%M); ET_D=$(TZ=America/New_York date +\%u); case "$ET_H" in 10:00|15:30|17:00) [ "$ET_D" -le 5 ] && cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_us $APP_DIR/.venv/bin/python recommend.py us --slack >> logs/cron/leverage_us.log 2>&1 ;; esac
+0,30 * * * * ET_H=$(TZ=America/New_York date +\%H:\%M); ET_D=$(TZ=America/New_York date +\%u); case "$ET_H" in 10:00|15:30|17:00) [ "$ET_D" -le 5 ] && cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_us $APP_DIR/.venv/bin/python infra/cron/run_tune_then_recommend.py us --slack >> logs/cron/leverage_us.log 2>&1 ;; esac

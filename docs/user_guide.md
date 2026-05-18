@@ -118,7 +118,7 @@ DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 | `drawdown_sell_cutoff` | 매도 전환 기준 (%) |
 
 ## 5. Oracle VM cron 자동화
-실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
+실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 배치는 `tune.py`로 config를 갱신한 뒤 `recommend.py`로 Slack 추천을 전송합니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
 
 ### 스케줄 (거래일 기준 = 월-금)
 - **🇰🇷 한국 (KST)**

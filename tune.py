@@ -13,8 +13,8 @@ from recommend import get_market_status
 # 국가별 튜닝 설정
 TUNING_CONFIG: dict[str, dict] = {
     "us": {
-        "drawdown_buy_cutoff": np.arange(0.5, 5.5, 0.5),
-        "drawdown_sell_cutoff": np.arange(0.5, 5.5, 0.5),
+        "drawdown_buy_cutoff": np.arange(0.5, 3.5, 0.5),
+        "drawdown_sell_cutoff": np.arange(0.5, 3.5, 0.5),
         "defense": [
             {"ticker": "CASH", "name": "현금"},
             # {"ticker": "SCHD", "name": "슈왑 미국 배당주 ETF"},
@@ -28,8 +28,8 @@ TUNING_CONFIG: dict[str, dict] = {
         ],
     },
     "kor": {
-        "drawdown_buy_cutoff": np.arange(0.5, 3.5, 0.5),
-        "drawdown_sell_cutoff": np.arange(0.5, 3.5, 0.5),
+        "drawdown_buy_cutoff": np.arange(0.5, 5.5, 0.5),
+        "drawdown_sell_cutoff": np.arange(0.5, 5.5, 0.5),
         "defense": [
             {"ticker": "CASH", "name": "현금"},
             # {"ticker": "161510", "name": "PLUS 고배당주"},
@@ -130,7 +130,7 @@ def main() -> None:
         msg = str(exc)
         if "YFRateLimitError" in msg or "rate" in msg.lower():
             print("YFRateLimitError: 요청이 너무 많습니다. 잠시 후 다시 실행하세요.")
-            return
+            raise SystemExit(1) from exc
         raise
 
     # 정렬: CAGR 내림차순
@@ -140,6 +140,7 @@ def main() -> None:
     # 최적 파라미터로 config 파일 업데이트
     if not results:
         print(f"튜닝 결과가 없습니다. {config_path}을 변경하지 않습니다.")
+        raise SystemExit(1)
     else:
         best_params = results[0]["params"]
 
