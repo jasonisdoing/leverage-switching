@@ -197,6 +197,8 @@ def run_backtest(
         # 매수
         if target != "CASH":
             buy_price = prices_today[target] * (1 + buy_slip)
+            if buy_price <= 0:
+                raise ValueError(f"유효하지 않은 매수가입니다: {target} @ {date.date()} = {buy_price}")
             purch_qty = int(cash_usd / buy_price)
             if purch_qty > 0 and (prev_target != target):
                 cash_usd -= purch_qty * buy_price
