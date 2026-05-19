@@ -147,7 +147,7 @@ def send_slack_recommendation(
 
     # 4. 요약 정보
     summary_text = f"ℹ️ *기준일*: {as_of}"
-    holding_days_text = f"\n📅 *보유일*: *{holding_days}거래일째*"
+    holding_days_text = f"\n⏳ *보유일*: *{holding_days}거래일째*"
 
     if is_warning and warning_target_display:
         # 경고 모드: 현재 보유 + 전환 가능성 안내
