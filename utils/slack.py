@@ -147,10 +147,12 @@ def send_slack_recommendation(
 
     # 4. 요약 정보
     summary_text = f"ℹ️ *기준일*: {as_of}"
+    holding_days_text = f"\n📅 *보유일*: *{holding_days}거래일째*"
 
     if is_warning and warning_target_display:
         # 경고 모드: 현재 보유 + 전환 가능성 안내
         summary_text += f"\n💼 *현재 보유*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += (
             f"\n\n*⚠️ 장중 경고*: 이대로 장 마감 시 "
             f"*{warning_target_display}*(으)로 전환될 수 있습니다. "
@@ -159,10 +161,12 @@ def send_slack_recommendation(
     elif is_warning:
         # 경고 모드이지만 변경 없음
         summary_text += f"\n🎯 *현재 보유*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += "\n\n*ℹ️ 안내*: 장 마감 시까지 변동될 수 있습니다. 장 마감 후 최종 확정 알림을 기다려주세요."
     elif is_changed:
         # 확정 모드에서 변경됨
         summary_text += f"\n🎯 *최종 타깃*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += (
             "\n\n*🔔 실행 안내*: 오늘 종가 기준으로 시그널이 확정되었습니다. "
             "내일(다음 거래일) 아침 시초가에 해당 종목을 매매하세요."
@@ -170,6 +174,7 @@ def send_slack_recommendation(
     else:
         # 확정 모드에서 변경 없음
         summary_text += f"\n🎯 *최종 타깃*: *{target_display}*"
+        summary_text += holding_days_text
 
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
 

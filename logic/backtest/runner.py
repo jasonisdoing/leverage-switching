@@ -230,7 +230,7 @@ def run_backtest(
             asset_pnl[sym] += delta
             prev_pos_value[sym] = position_value[sym]
 
-            if sym == target and qty[sym] > 0:
+            if sym == target and (qty[sym] > 0 or sym == "CASH"):
                 hold_days[sym] += 1
                 asset_exposure_days[sym] += 1
                 trade_days[sym] += 1
@@ -293,7 +293,7 @@ def run_backtest(
                 "1",
                 "CASH",
                 "HOLD" if cash_value > 0 else "WAIT",
-                "0",
+                str(hold_days.get("CASH", 0)),
                 "1",
                 "+0.0%",
                 f"{cash_value:,.0f}" if market == "kor" else f"{cash_value:,.2f}",
@@ -580,9 +580,11 @@ def run_backtest(
 
         if sym == "CASH":
             pnl_usd = 0.0
-            days = 0
-            trades = 0
-            win_rate_sym = 0.0
+            days = asset_exposure_days.get(sym, 0)
+            trades = trade_counts.get(sym, 0)
+            w_days = win_days.get(sym, 0)
+            t_days = trade_days.get(sym, 0)
+            win_rate_sym = w_days / t_days * 100 if t_days > 0 else 0.0
         else:
             pnl_usd = asset_pnl.get(sym, 0.0)
             days = asset_exposure_days.get(sym, 0)
