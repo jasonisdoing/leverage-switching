@@ -46,26 +46,26 @@ def run_backtest(
     common_index = common_index[common_index >= start_bound]
 
     opens = opens_full.loc[common_index]
-    signal_df = signal_df_full.loc[common_index]
+    # 종가 신호는 다음 거래일 시초가에만 매매할 수 있으므로 실행 타깃은 하루 늦춘다.
+    signal_targets = []
+    prev_signal_target = settings["offense_ticker"]
+    for _, row in signal_df_full.iterrows():
+        signal_target = pick_target(row, prev_signal_target, settings)
+        signal_targets.append(signal_target)
+        prev_signal_target = signal_target
+    signal_target_series = pd.Series(signal_targets, index=signal_df_full.index, name="signal_target")
+    execution_target_series = signal_target_series.shift(1)
+
+    common_index = common_index[execution_target_series.reindex(common_index).notna()]
+    if len(common_index) == 0:
+        raise ValueError("전일 종가 신호를 적용할 수 있는 실행 데이터가 없습니다.")
+
+    signal_df = signal_df_full.loc[common_index].copy()
+    signal_df["signal_target"] = signal_target_series.loc[common_index]
+    signal_df["target"] = execution_target_series.loc[common_index]
     returns = returns_full.loc[common_index]
     if returns.dropna().empty:
         raise ValueError("수익률 데이터가 비어 있습니다. 가격/기간 설정을 확인하세요.")
-
-    # 상태 기반 로직(이중 임계값)을 위해 순차적으로 타깃 결정
-    targets = []
-    prev_target = None
-    # 첫 날의 이전 타깃은 없으므로, 첫 날은 드로다운만 보고 결정
-    # (pick_target 내부에서 처리 필요하거나, 여기서 초기값 설정)
-    # pick_target 로직상 prev_target이 None이면 offense로 가정하거나, 별도 처리 필요.
-    # 여기서는 "공격 자산 보유 중"이었다고 가정하고 시작 (일반적인 백테스트 관례)
-    prev_target = settings["offense_ticker"]
-
-    for idx, row in signal_df.iterrows():
-        tgt = pick_target(row, prev_target, settings)
-        targets.append(tgt)
-        prev_target = tgt
-
-    signal_df["target"] = targets
 
     # 환율 데이터(원/달러) - 한국 시장은 1.0 고정
     fx = pre_fx.copy() if pre_fx is not None else download_fx(settings, start_bound)
@@ -720,7 +720,7 @@ def run_backtest(
     prev_prices = {}
     holding_start_prices = {}
     last_idx = prices_full.index.get_loc(last_date)
-    last_target = signal_df["target"].iloc[-1]
+    last_target = signal_df["signal_target"].iloc[-1]
 
     for sym in assets:
         if sym in prices_full.columns:
@@ -793,7 +793,7 @@ def run_backtest(
         "sharpe": sharpe,
         "max_drawdown": max_dd,
         "win_rate": win_rate,
-        "last_target": signal_df["target"].iloc[-1],
+        "last_target": last_target,
         "daily_log": daily_log,
         "summary_lines": summary_lines,
         "bench_summary_lines": bench_summary_lines,
@@ -805,6 +805,6 @@ def run_backtest(
         "used_settings_lines": used_settings_lines,
         "segment_lines": segment_lines,
         "recommendation_data": recommendation_data,
-        "holding_days": hold_days[signal_df["target"].iloc[-1]],
+        "holding_days": hold_days.get(last_target, 0),
         "pre_switch_data": pre_switch_data,
     }
