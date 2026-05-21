@@ -147,7 +147,7 @@ def main(argv: list[str]) -> int:
         _release_lock(lock_path)
         elapsed = time.monotonic() - started_monotonic
         _notify(
-            f"❌ *[{app_label}] 배치 실행 불가*: `{job_name}`\n"
+            f"<!channel>\n❌ *[{app_label}] 배치 실행 불가*: `{job_name}`\n"
             f"• 시작: {started_at}\n"
             f"• 소요: {elapsed:.1f}s\n"
             f"• 에러: `{exc}`"
@@ -158,7 +158,10 @@ def main(argv: list[str]) -> int:
         _release_lock(lock_path)
         elapsed = time.monotonic() - started_monotonic
         _notify(
-            f"❌ *[{app_label}] 배치 예외*: `{job_name}`\n• 시작: {started_at}\n• 소요: {elapsed:.1f}s\n• 에러: `{exc}`"
+            f"<!channel>\n❌ *[{app_label}] 배치 예외*: `{job_name}`\n"
+            f"• 시작: {started_at}\n"
+            f"• 소요: {elapsed:.1f}s\n"
+            f"• 에러: `{exc}`"
         )
         print(f"[run_batch] EXCEPTION {exc}", file=sys.stderr)
         return 1
@@ -181,8 +184,9 @@ def main(argv: list[str]) -> int:
 
     should_notify = (not success) or (success and job_name not in SUCCESS_NOTIFICATION_DISABLED_JOBS)
     if should_notify:
+        mention = "<!channel>\n" if not success else ""
         _notify(
-            f"{emoji} *[{app_label}] 배치 {status}*: `{job_name}`\n"
+            f"{mention}{emoji} *[{app_label}] 배치 {status}*: `{job_name}`\n"
             f"• 시작: {started_at}\n"
             f"• 소요: {elapsed:.1f}s\n"
             f"• exit: {exit_code}\n"
