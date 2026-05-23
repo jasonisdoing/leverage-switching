@@ -62,6 +62,7 @@ LOCK_DIR = PROJECT_ROOT / "logs" / "cron"
 SUCCESS_NOTIFICATION_DISABLED_JOBS: set[str] = {
     "leverage_kor",
     "leverage_us",
+    "leverage_monthly_tune",
 }
 
 

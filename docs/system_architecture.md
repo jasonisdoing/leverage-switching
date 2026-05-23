@@ -1,7 +1,7 @@
 # 시스템 아키텍처 (System Architecture)
 
 ## 1. 프로젝트 개요
-이 프로젝트는 **지수 레버리지 스위칭 전략(Index Leverage Switching)**을 자동으로 최적화하고 매매 추천을 생성하는 시스템입니다.
+이 프로젝트는 **지수 레버리지 스위칭 전략(Index Leverage Switching)**의 파라미터를 월간 튜닝하고 매매 추천을 자동 생성하는 시스템입니다.
 핵심 구성요소:
 - **튜닝(Tuning)**: 과거 데이터를 기반으로 최적의 파라미터를 탐색
 - **백테스트(Backtest)**: 전략의 과거 성과를 검증
@@ -33,7 +33,8 @@
 ├── 📁 infra/cron/
 │   ├── 📄 crontab          # 거래일 하루 3회 스케줄 (한/미)
 │   ├── 📄 install.sh       # 마커 기반 idempotent crontab 병합 설치
-│   └── 📄 run_batch.py     # 배치 래퍼 (로그/락/Slack 시작·실패 알림)
+│   ├── 📄 run_batch.py     # 배치 래퍼 (로그/락/Slack 시작·실패 알림)
+│   └── 📄 run_monthly_tuning.py # 월간 튜닝 순차 실행
 ├── 📁 zresults/            # 실행 결과 저장소
 │   ├── 📁 us/              # 미국 시장 로그
 │   └── 📁 kor/             # 한국 시장 로그
@@ -44,7 +45,7 @@
 ### 진입점 스크립트
 | 파일 | 역할 |
 |------|------|
-| `tune.py` | 파라미터 최적화 실행. 결과를 `config/*.json`에 업데이트 |
+| `tune.py` | 파라미터 최적화 실행. 결과를 `config/*.json`에 업데이트하고 `--slack` 사용 시 튜닝 결과 전송 |
 | `backtest.py` | 전략 성과 검증. 상세 리포트 및 로그 생성 |
 | `recommend.py` | 최근 데이터를 바탕으로 오늘의 포지션 추천 |
 

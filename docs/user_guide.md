@@ -17,6 +17,7 @@ pip install -r requirements.txt
 ```bash
 # 1. 튜닝 (최적 파라미터 탐색) → config/ 마켓별 파일 업데이트
 python tune.py kor
+python tune.py kor --slack
 
 # 2. 백테스트 (성과 검증)
 python backtest.py kor
@@ -37,7 +38,7 @@ python recommend.py us --slack
 | `recommend.py` | 오늘의 추천 | `zresults/{market}/recommend_*.log` |
 
 ### Slack 알림 옵션 (`--slack`)
-`recommend.py` 실행 시 `--slack` 옵션을 사용하면 설정된 Slack 채널로 추천 결과가 전송됩니다.
+`recommend.py` 실행 시 `--slack` 옵션을 사용하면 설정된 Slack 채널로 추천 결과가 전송됩니다. `tune.py` 실행 시 `--slack` 옵션을 사용하면 튜닝 완료 후 최적 파라미터와 상위 결과가 Slack으로 전송됩니다.
 - `.env` 파일에 `SLACK_BOT_TOKEN` 및 `TARGET_CHANNEL_ID`가 설정되어 있어야 합니다.
 
 ## 3. 결과 해석
@@ -118,7 +119,10 @@ DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 | `drawdown_sell_cutoff` | 매도 전환 기준 (%) |
 
 ## 5. Oracle VM cron 자동화
-실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 배치는 `tune.py`로 config를 갱신한 뒤 `recommend.py`로 Slack 추천을 전송합니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
+실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 추천 배치는 저장된 `config/{market}.json` 기준으로 `recommend.py`만 실행하여 Slack 추천을 전송합니다. 튜닝 배치는 매월 1일 08:00 KST에 한국/미국 시장을 순차 실행하고 최적 파라미터와 상위 결과를 Slack으로 전송합니다. 필요하면 `tune.py`를 수동 실행해 config를 갱신할 수도 있습니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
+
+### 월간 튜닝 (KST)
+- 매월 1일 08:00: 한국/미국 시장 순차 튜닝
 
 ### 스케줄 (거래일 기준 = 월-금)
 - **🇰🇷 한국 (KST)**
@@ -137,9 +141,9 @@ cron 은 KST 타임존으로 동작하므로 미국 시장은 매 30분 돌면�
 - 파이썬 3 및 `python3.12-venv` (Ubuntu 22/24 의 경우 `sudo apt-get install -y python3.12-venv`).
 
 ### 필수 환경 변수 (VM 의 `.env`)
-- `SLACK_BOT_TOKEN`: Slack API 토큰 (추천 결과 알림).
-- `TARGET_CHANNEL_ID`: 알림을 받을 전용 채널 ID.
-- `LOGS_SLACK_WEBHOOK`: 배치 시작/실패 및 배포 결과 알림용 Webhook URL.
+- `SLACK_BOT_TOKEN`: Slack API 토큰 (추천/튜닝 결과 Block Kit 알림).
+- `TARGET_CHANNEL_ID`: 추천/튜닝 결과를 받을 전용 채널 ID.
+- `LOGS_SLACK_WEBHOOK`: 배치 실패 및 배포 결과 알림용 Webhook URL.
 
 ### GitHub Secrets (배포용)
 - `ORACLE_VM_HOST`, `ORACLE_VM_USERNAME`, `ORACLE_VM_SSH_KEY`: VM SSH 접속 정보.

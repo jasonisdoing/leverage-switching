@@ -50,8 +50,8 @@
 - **파라미터 튜닝**: `tune.py`를 실행하여 과거 데이터 기반의 최적 파라미터를 탐색합니다.
 - **성과 검증**: `backtest.py`를 실행하여 전략의 과거 성과(CAGR, MDD 등)를 상세히 분석합니다.
 - **매매 추천**: `recommend.py`를 실행하여 튜닝된 파라미터로 오늘의 포지션을 결정합니다.
-- **Slack 연동**: 추천 결과를 Slack 메시지로 즉시 전송할 수 있습니다.
-- **Oracle VM cron 자동화**: 거래일에 시장별로 하루 3회 자동 실행하고 결과를 Slack으로 확인합니다.
+- **Slack 연동**: 추천 및 튜닝 결과를 Slack 메시지로 전송할 수 있습니다.
+- **Oracle VM cron 자동화**: 거래일에 시장별로 하루 3회 추천만 자동 실행하고 결과를 Slack으로 확인합니다.
 
 ## 4. 상세 문서
 더 자세한 내용은 아래 문서를 참고하세요.
@@ -66,6 +66,7 @@
 # 1. 튜닝 (최적 파라미터 탐색)
 python tune.py kor   # 한국 시장
 python tune.py us    # 미국 시장
+python tune.py kor --slack  # 튜닝 후 Slack 전송
 
 # 2. 백테스트 (성과 검증)
 python backtest.py kor
@@ -76,7 +77,10 @@ python recommend.py us --slack  # 실행 후 Slack 전송
 ```
 
 ## 6. 자동화 (Automation)
-이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 거래일(월-금)에 시장별로 하루 3회 자동 실행됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
+이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 거래일(월-금)에 시장별로 하루 3회 추천만 자동 실행됩니다. 튜닝은 매월 1일 08:00 KST에 한국/미국 시장을 순차 실행하고 결과를 Slack으로 전송합니다. 필요하면 `tune.py`를 수동 실행해 `config/*.json`을 갱신할 수도 있습니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
+
+- **월간 튜닝 (KST)**
+    - **매월 1일 08:00**: 한국/미국 시장 순차 튜닝
 
 - **🇰🇷 한국 시장 (KST, DST 없음)**
     - **09:30**: 장 시작 30분 후 (장중)
