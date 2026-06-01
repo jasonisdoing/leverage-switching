@@ -1,6 +1,7 @@
 """Slack 알림 전송 유틸리티."""
 
 import os
+from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -147,10 +148,12 @@ def send_slack_recommendation(
 
     # 4. 요약 정보
     summary_text = f"ℹ️ *기준일*: {as_of}"
+    holding_days_text = f"\n⏳ *보유일*: *{holding_days}거래일째*"
 
     if is_warning and warning_target_display:
         # 경고 모드: 현재 보유 + 전환 가능성 안내
         summary_text += f"\n💼 *현재 보유*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += (
             f"\n\n*⚠️ 장중 경고*: 이대로 장 마감 시 "
             f"*{warning_target_display}*(으)로 전환될 수 있습니다. "
@@ -159,10 +162,12 @@ def send_slack_recommendation(
     elif is_warning:
         # 경고 모드이지만 변경 없음
         summary_text += f"\n🎯 *현재 보유*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += "\n\n*ℹ️ 안내*: 장 마감 시까지 변동될 수 있습니다. 장 마감 후 최종 확정 알림을 기다려주세요."
     elif is_changed:
         # 확정 모드에서 변경됨
         summary_text += f"\n🎯 *최종 타깃*: *{target_display}*"
+        summary_text += holding_days_text
         summary_text += (
             "\n\n*🔔 실행 안내*: 오늘 종가 기준으로 시그널이 확정되었습니다. "
             "내일(다음 거래일) 아침 시초가에 해당 종목을 매매하세요."
@@ -170,6 +175,7 @@ def send_slack_recommendation(
     else:
         # 확정 모드에서 변경 없음
         summary_text += f"\n🎯 *최종 타깃*: *{target_display}*"
+        summary_text += holding_days_text
 
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
 
@@ -195,4 +201,87 @@ def send_slack_recommendation(
         return True
     except Exception as e:
         print(f" [SLACK] Slack 전송 실패: {e}")
+        return False
+
+
+def send_slack_tuning_result(
+    country: str,
+    started_at: datetime,
+    ended_at: datetime,
+    elapsed: str,
+    best_result: dict[str, Any],
+    table_lines: list[str],
+    meta: dict[str, Any] | None = None,
+    log_path: str | None = None,
+) -> bool:
+    """튜닝 완료 결과를 Slack으로 전송합니다."""
+    client, channel_id = _get_slack_client()
+    if client is None or channel_id is None:
+        return False
+
+    market_name = "🇺🇸 미국" if country.lower() == "us" else "🇰🇷 한국"
+    params = best_result.get("params", {})
+    offense_display = _format_display_name(
+        str(params.get("offense_ticker", "N/A")),
+        params.get("offense_name"),
+    )
+    defense_display = _format_display_name(
+        str(params.get("defense_ticker", "N/A")),
+        params.get("defense_name"),
+    )
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"🏆 {market_name} 월간 튜닝 완료",
+                "emoji": True,
+            },
+        }
+    ]
+
+    period_start = meta.get("period_start") if meta else None
+    period_end = meta.get("period_end") if meta else None
+    period_text = f"\n• 백테스트 기간: {period_start} ~ {period_end}" if period_start and period_end else ""
+    log_text = f"\n• 로그: `{log_path}`" if log_path else ""
+
+    summary_text = (
+        f"*최적 파라미터 (CAGR 기준)*\n"
+        f"• 공격 자산: {offense_display}\n"
+        f"• 방어 자산: {defense_display}\n"
+        f"• 매수 컷: {float(params.get('drawdown_buy_cutoff', 0)):.1f}%\n"
+        f"• 매도 컷: {float(params.get('drawdown_sell_cutoff', 0)):.1f}%\n"
+        f"• 기간 수익률: {best_result.get('period_return', 0.0) * 100:.2f}%\n"
+        f"• CAGR: {best_result.get('cagr', 0.0) * 100:.2f}%\n"
+        f"• MDD: {best_result.get('mdd', 0.0) * 100:.2f}%\n"
+        f"• Sharpe: {best_result.get('sharpe', 0.0):.2f}\n"
+        f"• 시작: {started_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"• 종료: {ended_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"• 소요: {elapsed}"
+        f"{period_text}"
+        f"{log_text}"
+    )
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
+
+    if table_lines:
+        top_text = "\n".join(table_lines[:12])
+        blocks.append({"type": "divider"})
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*상위 튜닝 결과*\n```{top_text}```"},
+            }
+        )
+
+    try:
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"[{market_name}] 월간 튜닝 완료 ({ended_at.date().isoformat()})",
+            blocks=blocks,
+        )
+        print(f" [SLACK] 튜닝 결과 Slack 알림 전송 완료 (channel={channel_id})")
+        return True
+    except Exception as e:
+        print(f" [SLACK] 튜닝 결과 Slack 전송 실패: {e}")
         return False

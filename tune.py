@@ -9,6 +9,7 @@ import numpy as np
 
 from logic.tune.runner import render_top_table, run_tuning
 from recommend import get_market_status
+from utils.slack import send_slack_tuning_result
 
 # 국가별 튜닝 설정
 TUNING_CONFIG: dict[str, dict] = {
@@ -55,6 +56,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="튜닝 실행 엔트리 포인트")
     parser.add_argument("country", nargs="?", default="us", help="대상 국가 (us/kor)")
     parser.add_argument("--auto", action="store_true", help="자동 실행 모드 (장 운영 시간 체크 수행)")
+    parser.add_argument("--slack", action="store_true", help="튜닝 결과를 Slack으로 전송")
     args = parser.parse_args()
 
     country = args.country
@@ -209,6 +211,18 @@ def main() -> None:
             f.write(f"... (총 {total_cases}개 중 상위 {len(top_n)}개 표시)\n")
 
     print(f"튜닝 결과 저장: {out_path}")
+
+    if args.slack:
+        send_slack_tuning_result(
+            country=country,
+            started_at=start_ts,
+            ended_at=end_ts,
+            elapsed=elapsed,
+            best_result=results[0],
+            table_lines=render_top_table(results, top_n=10, months_range=months_range),
+            meta=meta,
+            log_path=str(out_path),
+        )
 
 
 if __name__ == "__main__":

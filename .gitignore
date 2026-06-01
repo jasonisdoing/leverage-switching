@@ -13,6 +13,9 @@ znotes/
 # 백테스트 결과
 zresults
 
+# 튜닝 결과 config: VM 로컬에만 유지
+config/*.json
+
 # state: VM 로컬에만 유지 (git reset --hard 로부터 보호)
 state/*.json
 
