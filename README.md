@@ -77,10 +77,7 @@ python recommend.py us --slack  # 실행 후 Slack 전송
 ```
 
 ## 6. 자동화 (Automation)
-이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 거래일(월-금)에 시장별로 하루 3회 추천만 자동 실행됩니다. 튜닝은 매월 1일 08:00 KST에 한국/미국 시장을 순차 실행하고 결과를 Slack으로 전송합니다. 필요하면 `tune.py`를 수동 실행해 `config/*.json`을 갱신할 수도 있습니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
-
-- **월간 튜닝 (KST)**
-    - **매월 1일 08:00**: 한국/미국 시장 순차 튜닝
+이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 거래일(월-금)에 시장별로 하루 3회 추천만 자동 실행됩니다. 튜닝은 자동 실행하지 않고, 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포로 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포(`git reset --hard`)하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
 
 - **🇰🇷 한국 시장 (KST, DST 없음)**
     - **09:30**: 장 시작 30분 후 (장중)

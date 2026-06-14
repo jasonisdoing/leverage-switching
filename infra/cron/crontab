@@ -23,7 +23,7 @@
 # === 스케줄 정책 ===
 #  각 국가 거래일에 하루 3회 실행하며, 저장된 config 기준으로 추천만 실행
 #  (장 시작 30분 후 / 장 마감 30분 전 / 장 마감 1시간 후).
-#  튜닝은 매월 1일 08:00 KST에 시장별로 순차 실행하고 결과를 Slack으로 전송한다.
+#  튜닝은 로컬에서 수동으로 수행하고 config/*.json 을 커밋하면 배포로 반영된다.
 #  거래일 제한은 "현지 기준 월~금" 으로 근사. 공휴일까지 정밀 제외하려면
 #  recommend.py 에서 거래일 체크 로직을 추가할 것.
 #
@@ -47,9 +47,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APP_DIR=/home/ubuntu/apps/leverage-switching
 APP_TYPE=leverage-switching
 
-# ── 월간 튜닝 (매월 1일 KST) ─────────────────────────────────────
-# 08:00 KST - 한국/미국 시장 순차 튜닝
-0 8 1 * * cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_monthly_tune $APP_DIR/.venv/bin/python infra/cron/run_monthly_tuning.py >> logs/cron/leverage_monthly_tune.log 2>&1
+# ── 튜닝은 로컬에서 수동 실행 후 config 커밋으로 반영 (자동 cron 없음) ──
 
 # ── 한국 시장 (월-금) ─────────────────────────────────────────────
 # 09:30 KST - 장 시작 30분 후 (장중)
