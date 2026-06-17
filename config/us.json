@@ -1,5 +1,5 @@
 {
-    "backtested_date": "2026-06-14",
+    "backtested_date": "2026-06-18",
     "market": "us",
     "months_range": 12,
     "signal": {
@@ -16,7 +16,7 @@
     },
     "slippage": 0.25,
     "drawdown_buy_cutoff": 1.0,
-    "drawdown_sell_cutoff": 2.5,
+    "drawdown_sell_cutoff": 4.0,
     "benchmarks": [
         {
             "ticker": "SPMO",
