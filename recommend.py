@@ -7,11 +7,14 @@ from zoneinfo import ZoneInfo
 from config import MARKET_SCHEDULES
 from logic.backtest.runner import run_backtest
 from logic.backtest.settings import load_settings
-from utils.slack import send_slack_recommendation
+from logic.infinite_buy.runner import run_buy_backtest
+from utils.slack import send_slack_buy_recommendation, send_slack_recommendation
 
 
-def get_market_status(country: str) -> str:
+def get_market_status(market: str) -> str:
     """현재 시간 기준 장 상태를 반환합니다.
+
+    인자 market 은 MARKET_SCHEDULES 의 키(kor/us)입니다.
 
     반환값:
         "OPEN"            - 장중
@@ -21,7 +24,7 @@ def get_market_status(country: str) -> str:
     """
     from datetime import timedelta
 
-    schedule = MARKET_SCHEDULES.get(country)
+    schedule = MARKET_SCHEDULES.get(market)
     if not schedule:
         return "OPEN"
 
@@ -61,9 +64,13 @@ MARKET_PHASE_LABEL = {
 }
 
 
-def load_previous_state(country: str) -> dict:
+def _market_label(market: str) -> str:
+    return "🇺🇸 미국" if market == "us" else "🇰🇷 한국"
+
+
+def load_previous_state(profile: str) -> dict:
     """저장된 이전 추천 상태를 로드합니다."""
-    state_path = Path(f"state/last_recommendation_{country}.json")
+    state_path = Path(f"state/last_recommendation_{profile}.json")
     if not state_path.exists():
         return {}
     try:
@@ -73,11 +80,11 @@ def load_previous_state(country: str) -> dict:
         return {}
 
 
-def save_current_state(country: str, state: dict) -> None:
+def save_current_state(profile: str, state: dict) -> None:
     """현재 추천 상태를 저장합니다."""
     state_dir = Path("state")
     state_dir.mkdir(exist_ok=True)
-    state_path = state_dir / f"last_recommendation_{country}.json"
+    state_path = state_dir / f"last_recommendation_{profile}.json"
     with state_path.open("w", encoding="utf-8") as f:
         json.dump(state, f, indent=4, ensure_ascii=False)
 
@@ -122,40 +129,42 @@ def _build_ticker_names(settings: dict, prev_state: dict, display_target: str | 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="추천 실행 엔트리 포인트")
-    parser.add_argument("country", nargs="?", default="us", help="대상 국가 (us/kor)")
+    parser.add_argument("profile", nargs="?", default="switch", help="전략 프로파일 (switch/buy)")
     parser.add_argument("--slack", action="store_true", help="결과를 Slack으로 전송")
     args = parser.parse_args()
 
-    country = args.country
-
-    # 시장 상태 확인
-    schedule = MARKET_SCHEDULES.get(country, {})
-    tz_name = schedule.get("timezone", "UTC")
-    now_dt_local = datetime.now(ZoneInfo(tz_name))
-    now_local = now_dt_local.strftime("%Y-%m-%d %H:%M %Z")
-    status = get_market_status(country)
-    market_phase = MARKET_PHASE_LABEL.get(status, "장 마감 후")
-    # 장중일 때만 경고 모드 (현재 보유 기준 표시, 마감 후 변경 가능성 안내)
-    is_warning = status == "OPEN"
-    print(
-        f"[{country.upper()}] 실행 시작 (현지시각: {now_local}, status: {status} [{market_phase}], slack={args.slack})"
-    )
-
-    config_path = Path(f"config/{country}.json")
-
+    profile = args.profile
+    config_path = Path(f"config/{profile}.json")
     if not config_path.exists():
         print(f"설정 파일을 찾을 수 없습니다: {config_path}")
         return
 
     settings = load_settings(config_path)
+    market = settings.get("market", "kor")
+
+    schedule = MARKET_SCHEDULES.get(market, {})
+    tz_name = schedule.get("timezone", "UTC")
+    now_local = datetime.now(ZoneInfo(tz_name)).strftime("%Y-%m-%d %H:%M %Z")
+    status = get_market_status(market)
+    market_phase = MARKET_PHASE_LABEL.get(status, "장 마감 후")
+    print(f"[{profile}] 실행 시작 (현지시각: {now_local}, status: {status} [{market_phase}], slack={args.slack})")
 
     try:
-        result = run_backtest(settings)
+        if settings["strategy"] == "buy":
+            _recommend_buy(profile, settings, market, status, market_phase, args)
+        else:
+            _recommend_switch(profile, settings, market, status, market_phase, args)
     except Exception as exc:
         if "YFRateLimitError" in repr(exc) or "rate limit" in repr(exc).lower():
             print("YFRateLimitError: 요청이 너무 많습니다. 잠시 후 다시 실행하세요.")
             return
         raise
+
+
+def _recommend_switch(profile: str, settings: dict, market: str, status: str, market_phase: str, args) -> None:
+    is_warning = status == "OPEN"
+
+    result = run_backtest(settings)
 
     # 마지막 날 추천 정보 추출
     last_target = result["last_target"]
@@ -163,11 +172,11 @@ def main() -> None:
     end_date = rec_data["last_date"]
 
     # 이전 상태 로드 및 변경 여부 확인
-    prev_state = load_previous_state(country)
+    prev_state = load_previous_state(profile)
     prev_target = prev_state.get("target")
     is_changed = (prev_target is not None) and (prev_target != last_target)
 
-    # 상태 저장: 장중이 아닐 때 (장전/마감 직후/마감 후 모두 포함)
+    # 상태 저장: 장중이 아닐 때
     if status != "OPEN":
         current_state = {
             "date": end_date,
@@ -178,18 +187,15 @@ def main() -> None:
             ),
             "updated_at": datetime.now().isoformat(),
         }
-        save_current_state(country, current_state)
+        save_current_state(profile, current_state)
 
-    # 경고 모드에서는 현재 보유 종목(prev_target) 기준으로 표시,
-    # 시그널이 가리키는 종목(last_target)은 잠재적 변경으로 안내
     if is_warning and prev_target is not None:
-        display_target = prev_target  # 현재 보유 종목
-        warning_target = last_target if is_changed else None  # 전환 가능 종목
+        display_target = prev_target
+        warning_target = last_target if is_changed else None
     else:
         display_target = last_target
         warning_target = None
 
-    # 티커와 이름 가져오기
     offense_ticker = settings["offense_ticker"]
     offense_name = settings.get("offense_name", offense_ticker)
     defense_ticker = settings["defense_ticker"]
@@ -203,7 +209,6 @@ def main() -> None:
     sell_cutoff = rec_data["sell_cutoff"]
     needed_recovery = rec_data["needed_recovery"]
 
-    market = settings.get("market", "us")
     if market == "kor":
         currency_prefix = ""
         currency_suffix = "원"
@@ -215,12 +220,10 @@ def main() -> None:
 
     ticker_names = _build_ticker_names(settings, prev_state, display_target)
 
-    # 경고 모드에서 전환 전 보유 데이터 추출
     pre_switch_data = result.get("pre_switch_data", {})
     pre_switch_hold_days = pre_switch_data.get("hold_days", {})
     pre_switch_cum_return = pre_switch_data.get("cum_return")
 
-    # 추천 출력 생성
     table_lines = []
     assets = []
     if display_target and display_target not in (offense_ticker, defense_ticker):
@@ -238,7 +241,6 @@ def main() -> None:
         day_ret = daily_returns.get(sym) if has_market_data else None
         c_ret = cum_returns.get(sym) if has_market_data else None
 
-        # 경고 모드에서 현재 보유 종목의 누적 수익률은 전환 전 데이터 사용
         if is_warning and warning_target and sym == display_target:
             if price is None:
                 price = pre_switch_data.get("last_price")
@@ -247,11 +249,9 @@ def main() -> None:
             if pre_switch_cum_return is not None:
                 c_ret = pre_switch_cum_return
 
-        # 비고(Note) 로직: 타깃/매매 조건 표시
         sell_cutoff_val = -sell_cutoff / 100
         needed_drop = (current_dd - sell_cutoff_val) * 100 if current_dd > sell_cutoff_val else 0
 
-        # 상태별 이모지 및 텍스트 결정 (display_target 기준)
         if sym == display_target:
             status_text = "BUY"
             status_emoji = "✅️"
@@ -263,26 +263,20 @@ def main() -> None:
         note = ""
         if sym == offense_ticker:
             if display_target == offense_ticker:
-                # 공격 자산 보유 중: 얼마나 더 하락하면 매도하는지 표시
                 note = f"{signal_name}가 {needed_drop:.2f}% 더 하락 시 매도"
             elif warning_target == offense_ticker:
-                # 이미 매수 신호 발생 (장중 경고 모드) - 장 마감 후 전환 예정
                 note = f"{signal_name} 매수 조건 이미 충족 → 장 마감 후 매수 전환 예정"
             else:
-                # 방어 자산 보유 중: 공격 자산이 얼마나 회복해야 매수하는지 표시
                 note = f"{signal_name}가 {needed_recovery:+.2f}% 더 회복 시 매수"
         else:
-            # 방어 자산의 비고는 비워둠 (공격 자산 쪽에 모든 정보 집중)
             note = ""
 
         table_lines.append(f"{status_emoji} {display_name}")
         table_lines.append(f"  상태: {status_text}")
         table_lines.append(f"  일간: {_format_metric_pct(day_ret)}")
 
-        # 누적 수익률 뒤에 보유 정보 추가
         cum_text = f"  누적: {_format_metric_pct(c_ret)}"
         if sym == display_target:
-            # 경고 모드에서는 전환 전 보유일 사용
             if is_warning and warning_target:
                 h_days = pre_switch_hold_days.get(sym, 0)
             else:
@@ -298,24 +292,21 @@ def main() -> None:
             table_lines.append(f"  비고: {note}")
         table_lines.append("")
 
-    # 타깃 이름 (현재 보유 기준)
     target_name = ticker_names.get(display_target, display_target)
     target_display = _format_display_name(display_target, target_name)
 
-    # 경고 모드에서 전환 가능 종목 이름
     warning_target_display = None
     if warning_target:
         wt_name = ticker_names.get(warning_target, warning_target)
         warning_target_display = _format_display_name(warning_target, wt_name)
 
-    # 로그 파일 저장: zresults/{country}/
-    out_dir = Path(f"zresults/{country}")
+    out_dir = Path(f"zresults/{profile}")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"recommend_{datetime.now().date()}.log"
 
     with out_path.open("w", encoding="utf-8") as f:
         f.write(f"추천 로그 생성: {datetime.now().isoformat()}\n")
-        f.write(f"마켓: {country.upper()}\n\n")
+        f.write(f"프로파일: {profile} | 시장: {market}\n\n")
         f.write("=== 추천 목록 ===\n")
         for line in table_lines:
             f.write(line + "\n")
@@ -331,10 +322,8 @@ def main() -> None:
     else:
         print(f"ℹ️ 포지션 유지: {target_display}")
 
-    # Slack 전송 내용 요약 출력
-    market_name = "🇺🇸 미국" if country.lower() == "us" else "🇰🇷 한국"
+    market_name = _market_label(market)
     header_text = f"{market_name} 스위칭 {'포지션 변경 알림' if is_changed else '정기 보고'}"
-
     print("\n=== Slack 전송 요약 ===")
     print(f"{header_text} (기준일: {end_date})")
     print(f"🏆 최적 파라미터 (CAGR: {result.get('cagr', 0) * 100:.2f}%)")
@@ -344,7 +333,6 @@ def main() -> None:
     print(f"🎯 최종 타깃: {target_display}")
     print("========================\n")
 
-    # Slack 알림 전송
     if args.slack:
         tuning_meta = {
             "offense_ticker": offense_ticker,
@@ -358,7 +346,7 @@ def main() -> None:
             "period_end": result.get("end"),
         }
         send_slack_recommendation(
-            country=country,
+            country=market,
             as_of=end_date,
             target_display=target_display,
             table_lines=table_lines,
@@ -367,6 +355,78 @@ def main() -> None:
             holding_days=result.get("holding_days", 0),
             is_warning=is_warning,
             warning_target_display=warning_target_display,
+            market_phase=market_phase,
+        )
+
+
+def _recommend_buy(profile: str, settings: dict, market: str, status: str, market_phase: str, args) -> None:
+    report = run_buy_backtest(settings)
+    rec = report["recommendation"]
+    end_date = report["end"]
+    target_display = _format_display_name(settings["target_ticker"], settings["target_name"])
+
+    prev_state = load_previous_state(profile)
+    prev_action = prev_state.get("action")
+    is_changed = (prev_action is not None) and (prev_action != rec["action"])
+
+    if status != "OPEN":
+        save_current_state(
+            profile,
+            {
+                "date": end_date,
+                "action": rec["action"],
+                "buys_done": rec["buys_done"],
+                "avg": rec["avg"],
+                "updated_at": datetime.now().isoformat(),
+            },
+        )
+
+    price_fmt = ",.0f" if market == "kor" else ",.2f"
+    suffix = "원" if market == "kor" else ""
+
+    def _p(v):
+        return f"{format(v, price_fmt)}{suffix}" if v else "-"
+
+    table_lines = [
+        f"🎯 {target_display}",
+        f"  오늘 행동: [{rec['action']}] {rec['message']}",
+        f"  진행: {rec['buys_done']}/{rec['divisions']}회차",
+        f"  평단: {_p(rec['avg'])}",
+        f"  현재가(종가): {_p(rec['last_close'])}",
+        f"  익절 목표가: {_p(rec['target_price'])}",
+        f"  CAGR: {report['cagr'] * 100:.2f}% | MDD: {report['mdd'] * 100:.2f}% | 익절 {report['cycles']}회",
+    ]
+
+    out_dir = Path(f"zresults/{profile}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"recommend_{datetime.now().date()}.log"
+    with out_path.open("w", encoding="utf-8") as f:
+        f.write(f"추천 로그 생성: {datetime.now().isoformat()}\n")
+        f.write(f"프로파일: {profile}(무한매수법) | 시장: {market}\n\n")
+        f.write("=== 추천 ===\n")
+        for line in table_lines:
+            f.write(line + "\n")
+        f.write(f"\n[INFO] 기준일: {end_date}\n")
+
+    print(f"\n추천 결과 저장: {out_path}")
+    if is_changed:
+        print(f"⚠️ 행동 변경 감지: {prev_action} -> {rec['action']}")
+    else:
+        print(f"ℹ️ 행동: {rec['action']}")
+
+    print("\n=== Slack 전송 요약 ===")
+    for line in table_lines:
+        print(line)
+    print("========================\n")
+
+    if args.slack:
+        send_slack_buy_recommendation(
+            market=market,
+            as_of=end_date,
+            target_display=target_display,
+            recommendation=rec,
+            table_lines=table_lines,
+            is_changed=is_changed,
             market_phase=market_phase,
         )
 

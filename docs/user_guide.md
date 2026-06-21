@@ -12,30 +12,30 @@ pip install -r requirements.txt
 ## 2. 실행 방법
 
 ### 워크플로우
-권장 실행 순서 (시장 인자 `us` 또는 `kor` 추가):
+권장 실행 순서 (전략 프로파일 인자 `switch` 또는 `buy` 추가, 기본값 `switch`):
 
 ```bash
-# 1. 튜닝 (최적 파라미터 탐색) → config/ 마켓별 파일 업데이트
-python tune.py kor
-python tune.py kor --slack
+# 1. 튜닝 (최적 파라미터 탐색) → config/{profile}.json 업데이트
+python tune.py switch
+python tune.py buy
+python tune.py switch --slack
 
 # 2. 백테스트 (성과 검증)
-python backtest.py kor
+python backtest.py switch
+python backtest.py buy
 
-# 3. 추천 (오늘의 매매 신호)
-python recommend.py kor
-
-# 4. 추천 및 Slack 전송
-python recommend.py us --slack
+# 3. 추천 (오늘의 매매 신호/행동)
+python recommend.py switch
+python recommend.py buy --slack
 ```
 
 ### 각 스크립트 설명
 
 | 스크립트 | 설명 | 결과 저장 위치 |
 |----------|------|----------------|
-| `tune.py` | 최적 파라미터 탐색 | `zresults/{market}/tune_*.log` |
-| `backtest.py` | 전략 성과 분석 | `zresults/{market}/backtest_*.log` |
-| `recommend.py` | 오늘의 추천 | `zresults/{market}/recommend_*.log` |
+| `tune.py` | 최적 파라미터 탐색 | `zresults/{profile}/tune_*.log` |
+| `backtest.py` | 전략 성과 분석 | `zresults/{profile}/backtest_*.log` |
+| `recommend.py` | 오늘의 추천 | `zresults/{profile}/recommend_*.log` |
 
 ### Slack 알림 옵션 (`--slack`)
 `recommend.py` 실행 시 `--slack` 옵션을 사용하면 설정된 Slack 채널로 추천 결과가 전송됩니다. `tune.py` 실행 시 `--slack` 옵션을 사용하면 튜닝 완료 후 최적 파라미터와 상위 결과가 Slack으로 전송됩니다.
@@ -81,60 +81,64 @@ DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 - 매수 전환 기준: **-0.30%** (이보다 회복되면 매수)
 - 필요 회복폭: **+2.64%** (아직 2.64% 더 올라야 매수 조건 충족)
 
-## 4. 설정 파일 (`config/us.json`, `config/kor.json`)
+## 4. 설정 파일 (`config/switch.json`, `config/buy.json`)
 
+설정 파일은 `strategy` 필드로 전략을 구분합니다.
+
+### switch (스위칭)
 ```json
 {
-    "backtested_date": "2025-12-20",
-    "market": "us",
+    "backtested_date": "2026-06-21",
+    "strategy": "switch",
+    "market": "kor",
     "months_range": 12,
-    "signal": {
-        "ticker": "QQQ",
-        "name": "Nasdaq 100 ETF"
-    },
-    "offense": {
-        "ticker": "TQQQ",
-        "name": "Nasdaq 3배 레버리지"
-    },
-    "defense": {
-        "ticker": "GDX",
-        "name": "반에크 금광 ETF"
-    },
-    "drawdown_buy_cutoff": 0.3,
-    "drawdown_sell_cutoff": 0.4,
-    "slippage": 0.05,
+    "signal": { "ticker": "226490", "name": "KODEX 코스피" },
+    "offense": { "ticker": "122630", "name": "KODEX 레버리지" },
+    "defense": { "ticker": "CASH", "name": "현금" },
+    "drawdown_buy_cutoff": 1.0,
+    "drawdown_sell_cutoff": 20.0,
+    "slippage": 0.5,
+    "benchmarks": [...]
+}
+```
+
+### buy (무한매수법)
+```json
+{
+    "backtested_date": "2026-06-21",
+    "strategy": "buy",
+    "market": "kor",
+    "months_range": 12,
+    "target": { "ticker": "122630", "name": "KODEX 레버리지" },
+    "divisions": 40,
+    "take_profit_pct": 10.0,
+    "slippage": 0.5,
     "benchmarks": [...]
 }
 ```
 
 | 키 | 설명 |
 |----|------|
-| `backtested_date` | 마지막으로 튜닝/백테스트된 날짜 |
-| `market` | 시장 구분 (`us` 또는 `kor`) |
+| `strategy` | 전략 구분 (`switch` 또는 `buy`) |
+| `market` | 시장 구분 (`kor` 또는 `us`) — 데이터 소스 결정 |
 | `months_range` | 백테스트 기간 (개월) |
-| `signal` | 시그널 참조 종목 객체 (ticker, name) |
-| `offense` | 공격 자산 객체 (ticker, name) |
-| `defense` | 방어 자산 객체 (ticker, name) |
-| `drawdown_buy_cutoff` | 매수 전환 기준 (%) |
-| `drawdown_sell_cutoff` | 매도 전환 기준 (%) |
+| `signal`/`offense`/`defense` | (switch) 시그널·공격·방어 자산 객체 |
+| `drawdown_buy_cutoff`/`drawdown_sell_cutoff` | (switch) 매수/매도 전환 기준 (%) |
+| `target` | (buy) 분할 매수 대상 종목 객체 |
+| `divisions` | (buy) 분할 수 (원금을 며칠에 나눠 매수) |
+| `take_profit_pct` | (buy) 익절률 (%) — 평단 대비 |
 
 ## 5. Oracle VM cron 자동화
-실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 추천 배치는 저장된 `config/{market}.json` 기준으로 `recommend.py`만 실행하여 Slack 추천을 전송합니다. 튜닝은 자동 cron 으로 돌리지 않습니다. 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포 시 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포(`git reset --hard origin/upgrade`)한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
+실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 추천 배치는 저장된 `config/{profile}.json` 기준으로 `recommend.py {switch|buy}` 만 실행하여 Slack 추천을 전송합니다. 튜닝은 자동 cron 으로 돌리지 않습니다. 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포 시 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포(`git reset --hard origin/upgrade`)한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
 
 ### 튜닝 (수동)
-- 로컬에서 `python tune.py kor --slack` / `python tune.py us --slack` 실행 → `config/*.json` 갱신 → 커밋/푸시로 서버 반영
+- 로컬에서 `python tune.py switch --slack` / `python tune.py buy --slack` 실행 → `config/*.json` 갱신 → 커밋/푸시로 서버 반영
 
-### 스케줄 (거래일 기준 = 월-금)
-- **🇰🇷 한국 (KST)**
-    - 09:30 장 시작 30분 후 (장중)
-    - 15:00 장 마감 30분 전 (장중)
-    - 16:30 장 마감 1시간 후 (장 마감 후)
-- **🇺🇸 미국 (ET, DST 자동 반영)**
-    - 10:00 ET 장 시작 30분 후 (장중)
-    - 15:30 ET 장 마감 30분 전 (장중)
-    - 17:00 ET 장 마감 1시간 후 (장 마감 후)
-
-cron 은 KST 타임존으로 동작하므로 미국 시장은 매 30분 돌면서 `TZ=America/New_York date` 기준 요일(월-금)과 시각이 맞을 때만 실행합니다.
+### 스케줄 (한국 거래일 기준 = 월-금, KST)
+switch / buy 두 전략 모두 동일 시각에 실행합니다.
+- 09:30 장 시작 30분 후 (장중)
+- 15:00 장 마감 30분 전 (장중)
+- 16:30 장 마감 1시간 후 (장 마감 후)
 
 ### VM 에 필요한 환경
 - `~/apps/leverage-switching/.env` 에 Slack 토큰/채널 ID 설정 (아래 항목).

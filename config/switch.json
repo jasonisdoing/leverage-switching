@@ -1,5 +1,6 @@
 {
-    "backtested_date": "2026-06-18",
+    "backtested_date": "2026-06-21",
+    "strategy": "switch",
     "market": "kor",
     "months_range": 12,
     "signal": {
@@ -11,11 +12,11 @@
         "name": "KODEX 레버리지"
     },
     "defense": {
-        "ticker": "CASH",
-        "name": "현금"
+        "ticker": "000660",
+        "name": "SK 하이닉스"
     },
     "slippage": 0.5,
-    "drawdown_buy_cutoff": 4.5,
+    "drawdown_buy_cutoff": 4.0,
     "drawdown_sell_cutoff": 5.0,
     "benchmarks": [
         {
@@ -49,6 +50,10 @@
         {
             "ticker": "140700",
             "name": "KODEX 보험"
+        },
+        {
+            "ticker": "000660",
+            "name": "SK 하이닉스"
         }
     ]
 }

@@ -258,7 +258,7 @@ def run_tuning(
 
     # config_path가 주어지면 해당 파일 사용, 아니면 기본값
     if config_path is None:
-        config_path = Path("config/us.json")
+        config_path = Path("config/switch.json")
     settings = load_settings(config_path)
 
     market = settings.get("market", "us")

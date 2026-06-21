@@ -1,93 +1,71 @@
-# Index Leverage Switching Strategy (US/KOR)
+# Leverage Strategies (Switch / Buy)
 
 ## 1. 전략 개요 (Strategy)
-**지수 추종 레버리지 ETF(TQQQ, KODEX 레버리지 등)**의 변동성에 대응하여 **공격 자산**과 **방어 자산(채권, 배당주, 금 등)**을 동적으로 교체하는 알고리즘 트레이딩 전략입니다.
-**이중 임계값(Dual Threshold)** 시스템을 적용하여 횡보장에서의 잦은 손실(Whipsaw)을 최소화하고 추세를 추종합니다.
+한국 레버리지 ETF(KODEX 레버리지 등)를 대상으로 두 가지 전략을 운용합니다.
 
-### 핵심 로직: 2-Tier Hysteresis (Market Specific)
-잦은 매매를 방지하기 위해 매수와 매도 기준을 시장 특성에 맞춰 분리하여 운영합니다.
+### 🔁 switch — 2-Tier Hysteresis Switching (스위칭)
+**기초 지수(KODEX 코스피)의 고점 대비 하락률**을 기준으로 공격 자산과 방어 자산을 동적으로 교체합니다.
+매수/매도 임계값을 분리(이중 임계값)해 횡보장의 잦은 매매(Whipsaw)를 줄입니다.
 
-#### 🇺🇸 미국 시장 (US Market)
-| 구분 | 내용 (Parameter) | 비고 |
+| 구분 | 내용 | 비고 |
 | :--- | :--- | :--- |
-| **시그널 자산** | QQQ (Nasdaq 100) | 추세 판단 기준 |
-| **공격 자산** | TQQQ (Nasdaq 3배 레버리지) | 강세장 수익 극대화 |
-| **방어 자산** | SCHD (슈왑 미국 배당주 ETF) | 약세장 방어 및 배당 수익 |
-| **매수 임계값** | **-0.1%** 회복 시 | 공격 자산 복귀 (Buy) |
-| **매도 임계값** | **-2.6%** 하락 시 | 방어 자산 대피 (Sell) |
+| **시그널 자산** | 226490 (KODEX 코스피) | 추세 판단 기준 |
+| **공격 자산** | 122630 (KODEX 레버리지) | 강세장 수익 |
+| **방어 자산** | 현금(CASH) 등 | 약세장 방어 |
+| **매수/매도 임계값** | `config/switch.json` | 튜닝으로 갱신 |
 
-#### 🇰🇷 한국 시장 (KOR Market)
-| 구분 | 내용 (Parameter) | 비고 |
+### 🛒 buy — 무한매수법 (1단계 단순화 버전)
+단일 대상 종목을 **현금에서 매일 1/N씩 분할 매수**하고, 보유 전량이 **평단 +익절률**에 도달하면 전량 익절하고 다음 거래일부터 새 사이클을 반복합니다. 분할 소진 시 추가 매수 없이 보유(존버)합니다.
+
+| 구분 | 내용 | 비고 |
 | :--- | :--- | :--- |
-| **시그널 자산** | **226490 (KODEX 코스피)** | 추세 판단 기준 |
-| **공격 자산** | 122630 (KODEX 레버리지) | 강세장 수익 극대화 |
-| **방어 자산** | 140700 (KODEX 보험) | 약세장 방어 및 배당 수익 |
-| **매수 임계값** | **-0.6%** 회복 시 | 공격 자산 복귀 (Buy) |
-| **매도 임계값** | **-1.6%** 하락 시 | 방어 자산 대피 (Sell) |
+| **대상 종목** | 122630 (KODEX 레버리지) | `config/buy.json` |
+| **분할 수 / 익절률** | 예: 40분할 / +10% | 튜닝으로 갱신 |
+| **체결 가정** | 시초가 매수·익절 (일봉 기반) | 1단계 단순화 |
+
+> 무한매수법은 강한 상승장에서 +익절률마다 현금화하므로 단순보유 대비 업사이드를 일부 포기하는 특성이 있습니다.
 
 ---
 
-## 2. 주요 성과 (Performance Example)
-*최근 백테스트 기준 (2026-02-24)*
+## 2. 주요 기능
+- **전략 프로파일**: `switch`(스위칭) / `buy`(무한매수법) 두 전략을 동일한 명령 구조로 운용.
+- **파라미터 튜닝**: `tune.py`로 과거 데이터 기반 최적 파라미터를 전수 탐색하고 `config/*.json`에 반영.
+- **성과 검증**: `backtest.py`로 CAGR, MDD 등 과거 성과를 분석.
+- **매매 추천**: `recommend.py`로 오늘의 포지션/행동을 결정.
+- **Slack 연동**: 추천 및 튜닝 결과를 Slack으로 전송.
+- **Oracle VM cron 자동화**: 한국 거래일에 두 전략의 추천을 하루 3회 자동 실행.
 
-### 🇺🇸 미국 시장 (US)
-- **CAGR**: **103.24%**
-- **MDD**: **-14.77%**
-- **운용 자산**: TQQQ (Nasdaq 3x) ↔ SCHD (Dividend)
-- **테스트 기간**: 2025-02-01 ~ 2026-02-23 (약 12.8개월)
-
-### 🇰🇷 한국 시장 (KOR)
-- **CAGR**: **498.72%**
-- **MDD**: **-15.36%**
-- **운용 자산**: 122630 (레버리지) ↔ 140700 (보험)
-- **테스트 기간**: 2025-02-01 ~ 2026-02-24 (약 12.9개월)
-
-*(실제 성과는 시장 상황 및 수수료/슬리피지에 따라 달라질 수 있습니다.)*
-
-## 3. 주요 기능
-- **멀티 마켓 지원**: 미국(US) 및 한국(KOR) 시장을 동시 지원합니다.
-- **통화 자동 포맷**: 한국 시장은 원화(KRW), 미국 시장은 달러(USD)로 성과를 표시합니다.
-- **파라미터 튜닝**: `tune.py`를 실행하여 과거 데이터 기반의 최적 파라미터를 탐색합니다.
-- **성과 검증**: `backtest.py`를 실행하여 전략의 과거 성과(CAGR, MDD 등)를 상세히 분석합니다.
-- **매매 추천**: `recommend.py`를 실행하여 튜닝된 파라미터로 오늘의 포지션을 결정합니다.
-- **Slack 연동**: 추천 및 튜닝 결과를 Slack 메시지로 전송할 수 있습니다.
-- **Oracle VM cron 자동화**: 거래일에 시장별로 하루 3회 추천만 자동 실행하고 결과를 Slack으로 확인합니다.
-
-## 4. 상세 문서
-더 자세한 내용은 아래 문서를 참고하세요.
+## 3. 상세 문서
 - 📘 [시스템 아키텍처](docs/system_architecture.md): 프로젝트 구조 및 데이터 흐름
-- 🧠 [전략 로직 상세](docs/strategy_logic.md): 알고리즘 및 튜닝 프로세스 설명
+- 🧠 [전략 로직 상세](docs/strategy_logic.md): 알고리즘 및 튜닝 프로세스
 - 📖 [사용자 가이드](docs/user_guide.md): 실행 방법 및 결과 해석
 
-## 5. 실행
-모든 스크립트는 시장 인자(`us` 또는 `kor`)를 받습니다. (기본값: `us`)
+## 4. 실행
+모든 스크립트는 전략 프로파일 인자(`switch` 또는 `buy`)를 받습니다. (기본값: `switch`)
+시장(market)은 `config/{profile}.json`의 `market` 필드로 결정됩니다.
 
 ```bash
-# 1. 튜닝 (최적 파라미터 탐색)
-python tune.py kor   # 한국 시장
-python tune.py us    # 미국 시장
-python tune.py kor --slack  # 튜닝 후 Slack 전송
+# 1. 튜닝 (최적 파라미터 탐색 → config 갱신)
+python tune.py switch
+python tune.py buy
+python tune.py switch --slack   # 튜닝 후 Slack 전송
 
 # 2. 백테스트 (성과 검증)
-python backtest.py kor
+python backtest.py switch
+python backtest.py buy
 
 # 3. 추천 (매매 신호 생성)
-python recommend.py kor
-python recommend.py us --slack  # 실행 후 Slack 전송
+python recommend.py switch
+python recommend.py buy --slack  # 실행 후 Slack 전송
 ```
 
-## 6. 자동화 (Automation)
-이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 거래일(월-금)에 시장별로 하루 3회 추천만 자동 실행됩니다. 튜닝은 자동 실행하지 않고, 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포로 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포(`git reset --hard`)하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
+## 5. 자동화 (Automation)
+이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 한국 거래일(월-금)에 `switch`/`buy` 두 전략의 추천을 하루 3회 자동 실행합니다. 튜닝은 자동 실행하지 않고, 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포로 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포(`git reset --hard`)하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
 
-- **🇰🇷 한국 시장 (KST, DST 없음)**
+- **🇰🇷 한국 시장 (KST, DST 없음)** — switch / buy 동일 스케줄
     - **09:30**: 장 시작 30분 후 (장중)
     - **15:00**: 장 마감 30분 전 (장중)
     - **16:30**: 장 마감 1시간 후 (장 마감 후)
-
-- **🇺🇸 미국 시장 (ET, DST 자동 반영)**
-    - **10:00 ET**: 장 시작 30분 후 (장중)
-    - **15:30 ET**: 장 마감 30분 전 (장중)
-    - **17:00 ET**: 장 마감 1시간 후 (장 마감 후)
 
 cron 정의는 `infra/cron/crontab`, 설치 스크립트는 `infra/cron/install.sh` 에 있습니다. install.sh 는 마커 기반 idempotent 라 같은 VM 에서 돌아가는 다른 앱의 crontab 을 보존합니다.
 

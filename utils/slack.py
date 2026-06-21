@@ -285,3 +285,109 @@ def send_slack_tuning_result(
     except Exception as e:
         print(f" [SLACK] 튜닝 결과 Slack 전송 실패: {e}")
         return False
+
+
+def send_slack_buy_recommendation(
+    market: str,
+    as_of: str,
+    target_display: str,
+    recommendation: dict,
+    table_lines: list[str],
+    is_changed: bool = False,
+    market_phase: str = "장 마감 후",
+) -> bool:
+    """무한매수법(buy) 추천 결과를 Slack으로 전송합니다."""
+    client, channel_id = _get_slack_client()
+    if client is None or channel_id is None:
+        return False
+
+    market_name = "🇺🇸 미국" if market.lower() == "us" else "🇰🇷 한국"
+    title = f"{market_name} 무한매수법 {'행동 변경 알림' if is_changed else '정기 보고'} [{market_phase}]"
+    body = "\n".join(table_lines)
+
+    blocks = [
+        {"type": "header", "text": {"type": "plain_text", "text": title, "emoji": True}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"*기준일: {as_of}*\n{body}"}},
+    ]
+    if is_changed:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "<!channel> 오늘 행동이 변경되었습니다! 확인해주세요."},
+            }
+        )
+
+    try:
+        client.chat_postMessage(channel=channel_id, text=f"{title} (기준일: {as_of})", blocks=blocks)
+        print(f" [SLACK] 무한매수법 추천 Slack 알림 전송 완료 (channel={channel_id})")
+        return True
+    except Exception as e:
+        print(f" [SLACK] 무한매수법 추천 Slack 전송 실패: {e}")
+        return False
+
+
+def send_slack_buy_tuning_result(
+    market: str,
+    started_at: datetime,
+    ended_at: datetime,
+    elapsed: str,
+    best_result: dict,
+    table_lines: list[str],
+    target_name: str,
+    meta: dict | None = None,
+    log_path: str | None = None,
+) -> bool:
+    """무한매수법(buy) 튜닝 결과를 Slack으로 전송합니다."""
+    client, channel_id = _get_slack_client()
+    if client is None or channel_id is None:
+        return False
+
+    market_name = "🇺🇸 미국" if market.lower() == "us" else "🇰🇷 한국"
+    params = best_result.get("params", {})
+    period_text = ""
+    if meta and meta.get("period_start") and meta.get("period_end"):
+        period_text = (
+            f"\n• 백테스트 기간: {meta['period_start']} ~ {meta['period_end']} ({meta.get('period_days', '?')} 거래일)"
+        )
+    log_text = f"\n• 로그: `{log_path}`" if log_path else ""
+
+    summary_text = (
+        f"*최적 파라미터 (CAGR 기준)*\n"
+        f"• 대상: {target_name}\n"
+        f"• 분할 수: {params.get('divisions', 'N/A')}\n"
+        f"• 익절률: {float(params.get('take_profit_pct', 0)):.1f}%\n"
+        f"• 기간 수익률: {best_result.get('period_return', 0.0) * 100:.2f}%\n"
+        f"• CAGR: {best_result.get('cagr', 0.0) * 100:.2f}%\n"
+        f"• MDD: {best_result.get('mdd', 0.0) * 100:.2f}%\n"
+        f"• Sharpe: {best_result.get('sharpe', 0.0):.2f}\n"
+        f"• 익절 횟수: {best_result.get('cycles', 0)}회\n"
+        f"• 시작: {started_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"• 종료: {ended_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"• 소요: {elapsed}"
+        f"{period_text}"
+        f"{log_text}"
+    )
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"🏆 {market_name} 무한매수법 튜닝 완료", "emoji": True},
+        },
+        {"type": "section", "text": {"type": "mrkdwn", "text": summary_text}},
+    ]
+    if table_lines:
+        top_text = "\n".join(table_lines[:12])
+        blocks.append({"type": "divider"})
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*상위 튜닝 결과*\n```{top_text}```"}})
+
+    try:
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"[{market_name}] 무한매수법 튜닝 완료 ({ended_at.date().isoformat()})",
+            blocks=blocks,
+        )
+        print(f" [SLACK] 무한매수법 튜닝 결과 Slack 알림 전송 완료 (channel={channel_id})")
+        return True
+    except Exception as e:
+        print(f" [SLACK] 무한매수법 튜닝 결과 Slack 전송 실패: {e}")
+        return False
