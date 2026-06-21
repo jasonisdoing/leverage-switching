@@ -235,7 +235,7 @@ def send_slack_tuning_result(
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"🏆 {market_name} 월간 튜닝 완료",
+                "text": f"🏆 {market_name} 튜닝 완료",
                 "emoji": True,
             },
         }
@@ -277,7 +277,7 @@ def send_slack_tuning_result(
     try:
         client.chat_postMessage(
             channel=channel_id,
-            text=f"[{market_name}] 월간 튜닝 완료 ({ended_at.date().isoformat()})",
+            text=f"[{market_name}] 튜닝 완료 ({ended_at.date().isoformat()})",
             blocks=blocks,
         )
         print(f" [SLACK] 튜닝 결과 Slack 알림 전송 완료 (channel={channel_id})")

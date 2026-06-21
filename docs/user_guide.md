@@ -119,10 +119,10 @@ DD -2.94% (매수컷 -0.30%, 필요 +2.64%)
 | `drawdown_sell_cutoff` | 매도 전환 기준 (%) |
 
 ## 5. Oracle VM cron 자동화
-실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 추천 배치는 저장된 `config/{market}.json` 기준으로 `recommend.py`만 실행하여 Slack 추천을 전송합니다. 튜닝 배치는 매월 1일 08:00 KST에 한국/미국 시장을 순차 실행하고 최적 파라미터와 상위 결과를 Slack으로 전송합니다. 필요하면 `tune.py`를 수동 실행해 config를 갱신할 수도 있습니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
+실제 추천 배치는 GitHub Actions 가 아닌 Oracle VM 의 호스트 cron 에서 돌아갑니다. 각 추천 배치는 저장된 `config/{market}.json` 기준으로 `recommend.py`만 실행하여 Slack 추천을 전송합니다. 튜닝은 자동 cron 으로 돌리지 않습니다. 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포 시 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 `deploy.yml` 이 VM 으로 SSH 배포(`git reset --hard origin/upgrade`)한 뒤 `infra/cron/install.sh` 를 실행하여 crontab 을 자동 반영합니다. 수동 재설치는 VM 에서 `bash ~/apps/leverage-switching/infra/cron/install.sh` 로 가능합니다 (idempotent).
 
-### 월간 튜닝 (KST)
-- 매월 1일 08:00: 한국/미국 시장 순차 튜닝
+### 튜닝 (수동)
+- 로컬에서 `python tune.py kor --slack` / `python tune.py us --slack` 실행 → `config/*.json` 갱신 → 커밋/푸시로 서버 반영
 
 ### 스케줄 (거래일 기준 = 월-금)
 - **🇰🇷 한국 (KST)**
