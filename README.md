@@ -65,7 +65,7 @@ python recommend.py buy --slack  # 실행 후 Slack 전송
 - **🇰🇷 한국 시장 (KST, DST 없음)** — switch / buy 동일 스케줄
     - **09:30**: 장 시작 30분 후 (장중)
     - **15:00**: 장 마감 30분 전 (장중)
-    - **16:30**: 장 마감 1시간 후 (장 마감 후)
+    - **15:40**: 장 마감 10분 후 (장 마감 후)
 
 cron 정의는 `infra/cron/crontab`, 설치 스크립트는 `infra/cron/install.sh` 에 있습니다. install.sh 는 마커 기반 idempotent 라 같은 VM 에서 돌아가는 다른 앱의 crontab 을 보존합니다.
 
