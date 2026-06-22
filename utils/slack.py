@@ -293,23 +293,98 @@ def send_slack_buy_recommendation(
     target_display: str,
     recommendation: dict,
     table_lines: list[str],
+    strategy_meta: dict[str, Any] | None = None,
     is_changed: bool = False,
+    is_warning: bool = False,
     market_phase: str = "장 마감 후",
 ) -> bool:
-    """무한매수법(buy) 추천 결과를 Slack으로 전송합니다."""
+    """무한매수법(buy) 추천 결과를 Slack으로 전송합니다.
+
+    기존 스위칭 추천 알림(send_slack_recommendation)과 동일한 스타일을 따른다.
+    """
     client, channel_id = _get_slack_client()
     if client is None or channel_id is None:
         return False
 
     market_name = "🇺🇸 미국" if market.lower() == "us" else "🇰🇷 한국"
-    title = f"{market_name} 무한매수법 {'행동 변경 알림' if is_changed else '정기 보고'} [{market_phase}]"
-    body = "\n".join(table_lines)
+    phase_tag = f"[{market_phase}]"
+
+    # 헤더 이모지/문구 분기 (스위칭 알림과 동일한 규칙)
+    if is_warning:
+        # 장중
+        if is_changed:
+            header_emoji = "⚠️"
+            header_text = f"{market_name} 무한매수법 {phase_tag} 행동 변경 예상 (경고)"
+        else:
+            header_emoji = "📊"
+            header_text = f"{market_name} 무한매수법 {phase_tag} 정기 보고"
+    else:
+        # 장전 / 장 마감 직후 / 장 마감 후
+        if is_changed:
+            header_emoji = "🚨"
+            header_text = f"{market_name} 무한매수법 {phase_tag} 행동 변경 확정! (다음 거래일 시초가 매매)"
+        else:
+            header_emoji = "✅"
+            header_text = f"{market_name} 무한매수법 {phase_tag} 정기 보고"
 
     blocks = [
-        {"type": "header", "text": {"type": "plain_text", "text": title, "emoji": True}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*기준일: {as_of}*\n{body}"}},
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"{header_emoji} {header_text}", "emoji": True},
+        }
     ]
-    if is_changed:
+
+    # 전략 정보 블록 (스위칭의 '최적 파라미터' 블록에 대응)
+    if strategy_meta:
+        meta_text = (
+            f"*🏆 전략 파라미터*\n"
+            f"• 대상: {target_display}\n"
+            f"• 분할 수: {strategy_meta.get('divisions', 'N/A')}\n"
+            f"• 익절률: {float(strategy_meta.get('take_profit_pct', 0)):.1f}%\n"
+            f"• CAGR: {strategy_meta.get('cagr', 0) * 100:.2f}% | "
+            f"MDD: {strategy_meta.get('mdd', 0) * 100:.2f}% | "
+            f"익절 {strategy_meta.get('cycles', 0)}회"
+        )
+        period_start = strategy_meta.get("period_start")
+        period_end = strategy_meta.get("period_end")
+        if period_start and period_end:
+            meta_text += f"\n• 백테스트 기간: {period_start} ~ {period_end}"
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": meta_text}})
+        blocks.append({"type": "divider"})
+
+    # 추천 목록 (상세)
+    if table_lines:
+        clean_lines = []
+        for line in table_lines:
+            if line.strip().startswith("🎯"):
+                clean_lines.append(f"*{line.strip()}*")
+            elif line.strip():
+                clean_lines.append(f"  {line.strip()}")
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "*=== 추천 목록 ===*\n" + "\n".join(clean_lines)},
+            }
+        )
+        blocks.append({"type": "divider"})
+
+    # 요약 정보 (오늘의 행동)
+    rec = recommendation or {}
+    action = rec.get("action", "HOLD")
+    message = rec.get("message", "")
+    summary_text = f"ℹ️ *기준일*: {as_of}\n🛒 *오늘 행동*: *[{action}] {message}*"
+    if is_warning:
+        summary_text += (
+            "\n\n*ℹ️ 안내*: 장중에는 종가 확정 전이라 행동이 바뀔 수 있습니다. 장 마감 후 최종 확정 알림을 기다려주세요."
+        )
+    elif is_changed:
+        summary_text += (
+            "\n\n*🔔 실행 안내*: 오늘 종가 기준으로 행동이 확정되었습니다. 다음 거래일 아침 시초가에 실행하세요."
+        )
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
+
+    # 채널 맨션 (확정 모드에서 변경이 있을 때만)
+    if is_changed and not is_warning:
         blocks.append(
             {
                 "type": "section",
@@ -318,7 +393,11 @@ def send_slack_buy_recommendation(
         )
 
     try:
-        client.chat_postMessage(channel=channel_id, text=f"{title} (기준일: {as_of})", blocks=blocks)
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"[{market_name}] {header_text} ({as_of})",
+            blocks=blocks,
+        )
         print(f" [SLACK] 무한매수법 추천 Slack 알림 전송 완료 (channel={channel_id})")
         return True
     except Exception as e:

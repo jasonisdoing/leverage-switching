@@ -365,6 +365,8 @@ def _recommend_buy(profile: str, settings: dict, market: str, status: str, marke
     end_date = report["end"]
     target_display = _format_display_name(settings["target_ticker"], settings["target_name"])
 
+    is_warning = status == "OPEN"
+
     prev_state = load_previous_state(profile)
     prev_action = prev_state.get("action")
     is_changed = (prev_action is not None) and (prev_action != rec["action"])
@@ -389,13 +391,21 @@ def _recommend_buy(profile: str, settings: dict, market: str, status: str, marke
 
     table_lines = [
         f"🎯 {target_display}",
-        f"  오늘 행동: [{rec['action']}] {rec['message']}",
         f"  진행: {rec['buys_done']}/{rec['divisions']}회차",
         f"  평단: {_p(rec['avg'])}",
         f"  현재가(종가): {_p(rec['last_close'])}",
         f"  익절 목표가: {_p(rec['target_price'])}",
-        f"  CAGR: {report['cagr'] * 100:.2f}% | MDD: {report['mdd'] * 100:.2f}% | 익절 {report['cycles']}회",
     ]
+
+    strategy_meta = {
+        "divisions": settings["divisions"],
+        "take_profit_pct": settings["take_profit_pct"],
+        "cagr": report["cagr"],
+        "mdd": report["mdd"],
+        "cycles": report["cycles"],
+        "period_start": report["meta"]["period_start"],
+        "period_end": report["meta"]["period_end"],
+    }
 
     out_dir = Path(f"zresults/{profile}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -417,6 +427,7 @@ def _recommend_buy(profile: str, settings: dict, market: str, status: str, marke
     print("\n=== Slack 전송 요약 ===")
     for line in table_lines:
         print(line)
+    print(f"🛒 오늘 행동: [{rec['action']}] {rec['message']}")
     print("========================\n")
 
     if args.slack:
@@ -426,7 +437,9 @@ def _recommend_buy(profile: str, settings: dict, market: str, status: str, marke
             target_display=target_display,
             recommendation=rec,
             table_lines=table_lines,
+            strategy_meta=strategy_meta,
             is_changed=is_changed,
+            is_warning=is_warning,
             market_phase=market_phase,
         )
 
