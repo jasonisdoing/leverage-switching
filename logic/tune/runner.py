@@ -43,17 +43,27 @@ def _is_network_or_data_error(exc: Exception) -> bool:
     return any(k in s for k in keywords)
 
 
-def _validate_defense_data_kor(tuning_config: dict, start_bound) -> list[str]:
-    """한국 시장 defense 티커 데이터 가용성 검증 (백테스트 시작일 기준)."""
+def _extract_candidate_tickers(items: list) -> list[str]:
+    """{ticker, name} 객체 또는 문자열 후보 리스트에서 티커만 추출한다."""
+    tickers = []
+    for d in items:
+        if isinstance(d, dict):
+            tickers.append(d.get("ticker", ""))
+        else:
+            tickers.append(str(d))
+    return tickers
+
+
+def _validate_candidates_kor(candidates: list, start_bound) -> list[str]:
+    """한국 시장 후보 티커(offense/defense) 데이터 가용성 검증 (백테스트 시작일 기준)."""
     if pykrx_stock is None:
         raise ImportError("pykrx 패키지가 설치되어 있지 않습니다. pip install pykrx")
 
-    raw_defs = tuning_config.get("defense", [])
     start_str = pd.Timestamp(start_bound).strftime("%Y%m%d")
     end_str = pd.Timestamp.today().strftime("%Y%m%d")
 
     errors = []
-    for d in raw_defs:
+    for d in candidates:
         if isinstance(d, dict):
             ticker = d.get("ticker", "")
             name = d.get("name", ticker)
@@ -79,12 +89,10 @@ def _validate_defense_data_kor(tuning_config: dict, start_bound) -> list[str]:
     return errors
 
 
-def _validate_defense_data_us(tuning_config: dict, start_bound) -> list[str]:
-    """미국 시장 defense 티커 데이터 가용성 검증 (백테스트 시작일 기준)."""
-    raw_defs = tuning_config.get("defense", [])
-
+def _validate_candidates_us(candidates: list, start_bound) -> list[str]:
+    """미국 시장 후보 티커(offense/defense) 데이터 가용성 검증 (백테스트 시작일 기준)."""
     errors = []
-    for d in raw_defs:
+    for d in candidates:
         if isinstance(d, dict):
             ticker = d.get("ticker", "")
             name = d.get("name", ticker)
@@ -133,15 +141,10 @@ def _run_single(args: tuple[dict, dict, pd.DataFrame, pd.DataFrame, pd.Series, p
 
 def _prefetch_data_us(settings: dict, tuning_config: dict, warmup_start):
     """미국 시장 데이터 프리패치 (yfinance)."""
-    # defense_ticker가 {ticker, name} 형식일 수 있으므로 티커만 추출
-    raw_defs = tuning_config.get("defense", [])
-    all_defs = []
-    for d in raw_defs:
-        if isinstance(d, dict):
-            all_defs.append(d.get("ticker", ""))
-        else:
-            all_defs.append(str(d))
-    tickers = list({settings["offense_ticker"], settings["signal_ticker"], *all_defs} - {"CASH"})
+    # offense/defense 후보가 {ticker, name} 형식일 수 있으므로 티커만 추출
+    all_defs = _extract_candidate_tickers(tuning_config.get("defense", []))
+    all_offs = _extract_candidate_tickers(tuning_config.get("offense", []))
+    tickers = list({settings["offense_ticker"], settings["signal_ticker"], *all_defs, *all_offs} - {"CASH"})
     price_raw = yf.download(tickers, start=warmup_start, auto_adjust=True, progress=False)
     if price_raw is None or len(price_raw) == 0:
         raise ValueError(f"가격 데이터를 받아오지 못했습니다: {tickers}")
@@ -180,15 +183,10 @@ def _prefetch_data_kor(settings: dict, tuning_config: dict, warmup_start):
     if pykrx_stock is None:
         raise ImportError("pykrx 패키지가 설치되어 있지 않습니다. pip install pykrx")
 
-    # defense_ticker가 {ticker, name} 형식일 수 있으므로 티커만 추출
-    raw_defs = tuning_config.get("defense", [])
-    all_defs = []
-    for d in raw_defs:
-        if isinstance(d, dict):
-            all_defs.append(d.get("ticker", ""))
-        else:
-            all_defs.append(str(d))
-    tickers = list({settings["offense_ticker"], settings["signal_ticker"], *all_defs} - {"CASH"})
+    # offense/defense 후보가 {ticker, name} 형식일 수 있으므로 티커만 추출
+    all_defs = _extract_candidate_tickers(tuning_config.get("defense", []))
+    all_offs = _extract_candidate_tickers(tuning_config.get("offense", []))
+    tickers = list({settings["offense_ticker"], settings["signal_ticker"], *all_defs, *all_offs} - {"CASH"})
 
     start_str = pd.Timestamp(warmup_start).strftime("%Y%m%d")
     end_str = pd.Timestamp.today().strftime("%Y%m%d")
@@ -264,12 +262,13 @@ def run_tuning(
     market = settings.get("market", "us")
     start_bound, warmup_start, end_bound = compute_bounds(settings)
 
-    # 튜닝 시작 전 defense 티커 데이터 가용성 검증 (백테스트 시작일 기준)
-    print("[데이터 검증] defense 티커 데이터 가용성 확인 중...")
+    # 튜닝 시작 전 offense/defense 후보 티커 데이터 가용성 검증 (백테스트 시작일 기준)
+    print("[데이터 검증] offense/defense 후보 티커 데이터 가용성 확인 중...")
+    candidates = list(tuning_config.get("offense", [])) + list(tuning_config.get("defense", []))
     if market == "kor":
-        validation_errors = _validate_defense_data_kor(tuning_config, start_bound)
+        validation_errors = _validate_candidates_kor(candidates, start_bound)
     else:
-        validation_errors = _validate_defense_data_us(tuning_config, start_bound)
+        validation_errors = _validate_candidates_us(candidates, start_bound)
 
     if validation_errors:
         required_date = pd.Timestamp(start_bound).strftime("%Y-%m-%d")
@@ -292,6 +291,11 @@ def run_tuning(
             raise SystemExit("yfinance YFRateLimitError: 잠시 후 다시 실행하세요.") from exc
         raise RuntimeError(f"프리패치 단계에서 데이터 로드에 실패했습니다: {exc}") from exc
 
+    # 공격 자산 후보: tuning_config에 offense가 없으면 settings의 단일 offense 사용 (하위 호환)
+    offense_candidates = tuning_config.get("offense") or [
+        {"ticker": settings["offense_ticker"], "name": settings.get("offense_name", settings["offense_ticker"])}
+    ]
+
     combos: list[dict] = []
     for buy_cut in tuning_config["drawdown_buy_cutoff"]:
         for sell_cut in tuning_config["drawdown_sell_cutoff"]:
@@ -299,22 +303,35 @@ def run_tuning(
             if buy_cut >= sell_cut:
                 continue
 
-            for def_t in tuning_config["defense"]:
-                # defense_ticker가 {ticker, name} 형식이면 티커만 추출
-                if isinstance(def_t, dict):
-                    ticker = def_t.get("ticker", "")
-                    defense_obj = def_t  # 전체 객체 저장
+            for off_t in offense_candidates:
+                # offense_ticker가 {ticker, name} 형식이면 티커만 추출
+                if isinstance(off_t, dict):
+                    off_ticker = off_t.get("ticker", "")
+                    offense_obj = off_t
                 else:
-                    ticker = str(def_t)
-                    defense_obj = {"ticker": ticker, "name": ticker}
-                combos.append(
-                    {
-                        "drawdown_buy_cutoff": float(buy_cut),
-                        "drawdown_sell_cutoff": float(sell_cut),
-                        "defense_ticker": ticker,
-                        "_defense_obj": defense_obj,  # 전체 객체 저장 (결과에 포함용)
-                    }
-                )
+                    off_ticker = str(off_t)
+                    offense_obj = {"ticker": off_ticker, "name": off_ticker}
+
+                for def_t in tuning_config["defense"]:
+                    # defense_ticker가 {ticker, name} 형식이면 티커만 추출
+                    if isinstance(def_t, dict):
+                        ticker = def_t.get("ticker", "")
+                        defense_obj = def_t  # 전체 객체 저장
+                    else:
+                        ticker = str(def_t)
+                        defense_obj = {"ticker": ticker, "name": ticker}
+                    combos.append(
+                        {
+                            "drawdown_buy_cutoff": float(buy_cut),
+                            "drawdown_sell_cutoff": float(sell_cut),
+                            "offense_ticker": off_ticker,
+                            "offense_name": offense_obj.get("name", off_ticker),
+                            "_offense_obj": offense_obj,  # 전체 객체 저장 (결과에 포함용)
+                            "defense_ticker": ticker,
+                            "defense_name": defense_obj.get("name", ticker),
+                            "_defense_obj": defense_obj,  # 전체 객체 저장 (결과에 포함용)
+                        }
+                    )
 
     total_cases = len(combos)
     workers = max_workers or cpu_count() or 1
@@ -381,6 +398,7 @@ def render_top_table(
     else:
         pr_label = "기간 수익률(%)"
     headers = [
+        "offense_ticker",
         "defense_ticker",
         "buy_cutoff",
         "sell_cutoff",
@@ -394,8 +412,15 @@ def render_top_table(
     rows: list[list[str]] = []
     for row in results[:top_n]:
         p = row["params"]
+
+        # offense 표시 (_offense_obj 우선)
+        off_ticker = str(p.get("offense_ticker", ""))
+        offense_obj = p.get("_offense_obj")
+        off_name = offense_obj.get("name", "") if isinstance(offense_obj, dict) else ""
+        off_display = f"{off_name}({off_ticker})" if off_name else off_ticker
+
+        # defense 표시 (_defense_obj 우선, 없으면 defense_names)
         ticker = str(p.get("defense_ticker", ""))
-        # _defense_obj가 있으면 그것에서 이름을 가져오고, 없으면 defense_names에서 가져옴
         defense_obj = p.get("_defense_obj")
         if defense_obj and isinstance(defense_obj, dict):
             name = defense_obj.get("name", "")
@@ -404,6 +429,7 @@ def render_top_table(
         display = f"{name}({ticker})" if name else ticker
         rows.append(
             [
+                off_display,
                 display,
                 f"{p['drawdown_buy_cutoff']:.2f}",
                 f"{p['drawdown_sell_cutoff']:.2f}",

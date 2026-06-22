@@ -19,10 +19,14 @@ from utils.slack import send_slack_buy_tuning_result, send_slack_tuning_result
 
 # 전략 프로파일별 튜닝 탐색 공간
 TUNING_CONFIG: dict[str, dict] = {
-    # 스위칭 전략: 매수/매도 컷오프 + 방어 자산 후보
+    # 스위칭 전략: 매수/매도 컷오프 + 공격 자산 후보 + 방어 자산 후보
     "switch": {
         "drawdown_buy_cutoff": np.arange(1, 6, 1),
         "drawdown_sell_cutoff": np.arange(1, 6, 1),
+        "offense": [
+            {"ticker": "122630", "name": "KODEX 레버리지"},
+            {"ticker": "243880", "name": "TIGER 200IT레버리지"},
+        ],
         "defense": [
             {"ticker": "CASH", "name": "현금"},
             {"ticker": "161510", "name": "PLUS 고배당주"},
@@ -148,6 +152,13 @@ def _tune_switch(profile: str, config_path: Path, settings: dict, market: str, a
 
     config["drawdown_buy_cutoff"] = round(float(best_params["drawdown_buy_cutoff"]), 2)
     config["drawdown_sell_cutoff"] = round(float(best_params["drawdown_sell_cutoff"]), 2)
+
+    offense_obj = best_params.get("_offense_obj")
+    if offense_obj and isinstance(offense_obj, dict):
+        config["offense"] = {
+            "ticker": offense_obj.get("ticker", ""),
+            "name": offense_obj.get("name", ""),
+        }
 
     defense_obj = best_params.get("_defense_obj")
     if defense_obj and isinstance(defense_obj, dict):
