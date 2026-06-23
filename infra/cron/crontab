@@ -21,9 +21,10 @@
 #   logs/cron/leverage_switch.log, logs/cron/leverage_buy.log 에 append
 #
 # === 스케줄 정책 ===
-#  한국 거래일(월-금)에 switch(스위칭)/buy(무한매수법) 두 전략을
+#  한국 거래일(월-금)에 switch(스위칭) 전략을
 #  09:05부터 16:05까지 매시간 5분마다 실행 (하루 총 8회).
-#  저장된 config/{switch,buy}.json 기준으로 recommend.py 만 실행한다.
+#  ⏸️ buy(무한매수법)는 현재 미사용으로 Slack 알림을 중지(주석 처리)함.
+#  저장된 config/switch.json 기준으로 recommend.py 만 실행한다.
 #  튜닝은 로컬에서 수동으로 수행하고 config/*.json 을 커밋하면 배포로 반영된다.
 #  거래일 제한은 "월~금" 으로 근사. 공휴일까지 정밀 제외하려면
 #  recommend.py 에서 거래일 체크 로직을 추가할 것.
@@ -43,5 +44,6 @@ APP_TYPE=leverage-switching
 5 9-16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
 
 # ── buy 전략 (무한매수법, 한국 시장 월-금) ────────────────────────
+# ⏸️ 현재 미사용: 무한매수법 Slack 알림 중지(일시 정지). 재개하려면 아래 줄 주석을 해제하세요.
 # 09:05 ~ 16:05 KST 매시간 5분 (총 8회)
-5 9-16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
+# 5 9-16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1

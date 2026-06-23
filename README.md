@@ -60,7 +60,7 @@ python recommend.py buy --slack  # 실행 후 Slack 전송
 ```
 
 ## 5. 자동화 (Automation)
-이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 한국 거래일(월-금)에 `switch`/`buy` 두 전략의 추천을 하루 8회 자동 실행합니다. 튜닝은 자동 실행하지 않고, 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포로 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포(`git reset --hard`)하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
+이 프로젝트는 Oracle VM 의 호스트 cron 을 통해 한국 거래일(월-금)에 `switch` 전략의 추천을 하루 8회 자동 실행합니다. (`buy` 무한매수법은 현재 미사용으로 Slack 알림을 중지해 둔 상태입니다 — `infra/cron/crontab`에서 주석 해제 시 재개.) 튜닝은 자동 실행하지 않고, 로컬에서 `tune.py`를 수동 실행해 `config/*.json`을 갱신한 뒤 커밋/푸시하면 배포로 서버에 반영됩니다. `upgrade` 브랜치에 푸시하면 GitHub Actions(`deploy.yml`)가 VM 으로 SSH 배포(`git reset --hard`)하고, 배포 말미에 `infra/cron/install.sh` 를 돌려 crontab 까지 자동 반영합니다.
 
 - **🇰🇷 한국 시장 (KST, DST 없음)** — switch / buy 동일 스케줄
     - **09:05 ~ 16:05**: 매시간 5분마다 실행 (하루 총 8회)
