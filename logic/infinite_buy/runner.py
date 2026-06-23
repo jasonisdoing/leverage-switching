@@ -11,6 +11,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import numpy as np
 import pandas as pd
 
@@ -142,8 +145,12 @@ def simulate_infinite_buy(
     }
 
 
-def _load_target_series(settings: dict):
-    """대상 종목의 시가/종가 시계열과 기간 메타를 반환한다."""
+def _load_target_series(settings: dict, drop_today: bool = False):
+    """대상 종목의 시가/종가 시계열과 기간 메타를 반환한다.
+
+    drop_today=True 이면 오늘(현지 기준) 미완성 세션을 제외하고
+    마지막으로 닫힌 거래일까지만 사용한다(장중 추천용).
+    """
     start_bound, _warmup, _end = compute_bounds(settings)
     # 무한매수법은 신호 워밍업이 필요 없으므로 start_bound 부터 사용
     prices = download_prices(settings, start_bound)
@@ -159,6 +166,9 @@ def _load_target_series(settings: dict):
 
     index = open_series.index.intersection(closes.index)
     index = index[index >= start_bound]
+    if drop_today and len(index) > 0:
+        kst_today = pd.Timestamp(datetime.now(ZoneInfo("Asia/Seoul")).date())
+        index = index[index < kst_today]
     if len(index) == 0:
         raise ValueError("대상 종목의 거래 데이터가 비어 있습니다. 기간/티커 설정을 확인하세요.")
 
@@ -233,9 +243,12 @@ def _fmt_price(value: float, market: str) -> str:
     return f"{value:,.2f}"
 
 
-def run_buy_backtest(settings: dict) -> dict:
-    """무한매수법 백테스트를 실행하고 리포트 dict 를 반환한다."""
-    opens, closes, meta = _load_target_series(settings)
+def run_buy_backtest(settings: dict, drop_today: bool = False) -> dict:
+    """무한매수법 백테스트를 실행하고 리포트 dict 를 반환한다.
+
+    drop_today=True 이면 오늘 미완성 세션을 제외하고 마지막 닫힌 거래일까지로 계산한다(장중 추천용).
+    """
+    opens, closes, meta = _load_target_series(settings, drop_today=drop_today)
     divisions = int(settings["divisions"])
     take_profit_pct = float(settings["take_profit_pct"])
     slippage = settings["slippage"]

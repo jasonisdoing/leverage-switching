@@ -164,19 +164,25 @@ def main() -> None:
 def _recommend_switch(profile: str, settings: dict, market: str, status: str, market_phase: str, args) -> None:
     is_warning = status == "OPEN"
 
-    result = run_backtest(settings)
+    # 장중에는 오늘의 미완성 봉을 제외하고 "마지막으로 닫힌 거래일 종가"로 신호를 확정한다.
+    # (설계 원칙: 당일 종가로 확정 → 익일 시초가 실행. 장중에는 포지션을 바꾸지 않는다.)
+    result = run_backtest(settings, drop_today=is_warning)
 
-    # 마지막 날 추천 정보 추출
+    # 마지막(확정) 거래일 추천 정보 추출
     last_target = result["last_target"]
     rec_data = result["recommendation_data"]
     end_date = rec_data["last_date"]
 
-    # 이전 상태 로드 및 변경 여부 확인
+    # 확정된 보유 종목 = 마지막으로 닫힌 거래일의 신호 (장중에도 뒤집지 않음)
+    display_target = last_target
+    warning_target = None  # 장중 특정 전환 종목은 더 이상 표시하지 않음 (확정 후에만 변경)
+
+    # 이전 상태 로드 및 변경 여부 확인 (확정은 장 마감 후에만 의미가 있음)
     prev_state = load_previous_state(profile)
     prev_target = prev_state.get("target")
-    is_changed = (prev_target is not None) and (prev_target != last_target)
+    is_changed = (not is_warning) and (prev_target is not None) and (prev_target != last_target)
 
-    # 상태 저장: 장중이 아닐 때
+    # 상태 저장: 장중이 아닐 때(종가 확정)만 저장
     if status != "OPEN":
         current_state = {
             "date": end_date,
@@ -188,13 +194,6 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
             "updated_at": datetime.now().isoformat(),
         }
         save_current_state(profile, current_state)
-
-    if is_warning and prev_target is not None:
-        display_target = prev_target
-        warning_target = last_target if is_changed else None
-    else:
-        display_target = last_target
-        warning_target = None
 
     offense_ticker = settings["offense_ticker"]
     offense_name = settings.get("offense_name", offense_ticker)
@@ -360,16 +359,17 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
 
 
 def _recommend_buy(profile: str, settings: dict, market: str, status: str, market_phase: str, args) -> None:
-    report = run_buy_backtest(settings)
+    is_warning = status == "OPEN"
+
+    # 장중에는 오늘 미완성 봉을 제외하고 마지막으로 닫힌 거래일까지로 행동을 확정한다.
+    report = run_buy_backtest(settings, drop_today=is_warning)
     rec = report["recommendation"]
     end_date = report["end"]
     target_display = _format_display_name(settings["target_ticker"], settings["target_name"])
 
-    is_warning = status == "OPEN"
-
     prev_state = load_previous_state(profile)
     prev_action = prev_state.get("action")
-    is_changed = (prev_action is not None) and (prev_action != rec["action"])
+    is_changed = (not is_warning) and (prev_action is not None) and (prev_action != rec["action"])
 
     if status != "OPEN":
         save_current_state(
