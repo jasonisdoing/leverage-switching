@@ -177,6 +177,29 @@ def send_slack_recommendation(
         summary_text += f"\n🎯 *최종 타깃*: *{target_display}*"
         summary_text += holding_days_text
 
+    # 방어 자산 보유 시, 공격 자산으로 전환하기 위해 필요한 시그널 회복률에 대한 설명 추가
+    if tuning_meta and "defense_ticker" in tuning_meta:
+        defense_ticker = tuning_meta.get("defense_ticker")
+        defense_name = tuning_meta.get("defense_name", "")
+        defense_display = _format_display_name(defense_ticker, defense_name)
+
+        # 현재 타깃이 방어 자산이고, 필요 회복률이 양수인 경우에만 추가
+        if target_display == defense_display and tuning_meta.get("needed_recovery", 0) > 0:
+            sig_name = tuning_meta.get("signal_name", "신호 자산")
+            offense_ticker = tuning_meta.get("offense_ticker", "")
+            offense_name = tuning_meta.get("offense_name", "")
+            off_display = _format_display_name(offense_ticker, offense_name)
+            curr_dd = tuning_meta.get("current_drawdown", 0.0) * 100
+            b_cut = tuning_meta.get("buy_cutoff", 0.0)
+            n_rec = tuning_meta.get("needed_recovery", 0.0)
+
+            explanation = (
+                f"\n\n💡 *설명*: 현재 {sig_name}가 최고점 대비 {curr_dd:+.2f}% 하락해 있는 상태이므로, "
+                f"공격 자산({off_display})으로 전환하기 위한 매수 기준인 *{-b_cut:+.1f}%*에 도달하기 위해선 "
+                f"지수가 *{n_rec:+.2f}%만큼 추가 회복(상승)*해야 합니다."
+            )
+            summary_text += explanation
+
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})
 
     # 5. 채널 맨션 (확정 알림에서 변경이 있을 때만, 경고 모드에서는 멘션 안 함)

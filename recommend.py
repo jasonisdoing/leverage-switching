@@ -343,6 +343,9 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
             "cagr": result.get("cagr", 0.0),
             "period_start": result.get("start"),
             "period_end": result.get("end"),
+            "signal_name": settings.get("signal", {}).get("name", "신호 자산"),
+            "current_drawdown": current_dd,
+            "needed_recovery": needed_recovery,
         }
         send_slack_recommendation(
             country=market,
