@@ -30,6 +30,7 @@
 #
 #  한국 (KST, DST 없음):
 #    09:30 KST (월-금) - 장 시작 30분 후 (장중)
+#    12:00 KST (월-금) - 장중 정각 (장중)
 #    15:00 KST (월-금) - 장 마감 30분 전 (장중)
 #    15:40 KST (월-금) - 장 마감 10분 후 (장 마감 후)
 
@@ -41,13 +42,15 @@ APP_TYPE=leverage-switching
 # ── 튜닝은 로컬에서 수동 실행 후 config 커밋으로 반영 (자동 cron 없음) ──
 
 # ── switch 전략 (스위칭, 한국 시장 월-금) ─────────────────────────
-# 09:30 / 15:00 / 15:40 KST
+# 09:30 / 12:00 / 15:00 / 15:40 KST
 30 9 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
+0 12 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
 0 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
 40 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
 
 # ── buy 전략 (무한매수법, 한국 시장 월-금) ────────────────────────
-# 09:30 / 15:00 / 15:40 KST
+# 09:30 / 12:00 / 15:00 / 15:40 KST
 30 9 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
+0 12 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
 0 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
 40 15 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
