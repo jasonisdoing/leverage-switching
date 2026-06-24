@@ -171,7 +171,15 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
     # 마지막(확정) 거래일 추천 정보 추출
     last_target = result["last_target"]
     rec_data = result["recommendation_data"]
-    end_date = rec_data["last_date"]
+
+    # 장중(is_warning)일 때 오늘 아침에 이미 실행된 매매와 보유를 반영하기 위해 날짜와 보유일 보정
+    display_holding_days = result.get("holding_days", 0)
+    if is_warning:
+        tz_name = "Asia/Seoul" if market == "kor" else "America/New_York"
+        end_date = datetime.now(ZoneInfo(tz_name)).date().isoformat()
+        display_holding_days += 1
+    else:
+        end_date = rec_data["last_date"]
 
     # 확정된 보유 종목 = 마지막으로 닫힌 거래일의 신호 (장중에도 뒤집지 않음)
     display_target = last_target
@@ -280,6 +288,8 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
                 h_days = pre_switch_hold_days.get(sym, 0)
             else:
                 h_days = result.get("holding_days", 0)
+            if is_warning:
+                h_days += 1
             if h_days > 0:
                 cum_text += f"({h_days}거래일째 보유중)"
         else:
@@ -354,7 +364,7 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
             table_lines=table_lines,
             tuning_meta=tuning_meta,
             is_changed=is_changed,
-            holding_days=result.get("holding_days", 0),
+            holding_days=display_holding_days,
             is_warning=is_warning,
             warning_target_display=warning_target_display,
             market_phase=market_phase,
