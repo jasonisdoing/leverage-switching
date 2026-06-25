@@ -183,21 +183,30 @@ def send_slack_recommendation(
         defense_name = tuning_meta.get("defense_name", "")
         defense_display = _format_display_name(defense_ticker, defense_name)
 
-        # 현재 타깃이 방어 자산이고, 필요 회복률이 양수인 경우에만 추가
-        if target_display == defense_display and tuning_meta.get("needed_recovery", 0) > 0:
+        n_rec = tuning_meta.get("needed_recovery", 0.0)
+        # 방어 자산 보유 중일 때 설명 표시.
+        # 장중에는 실시간 드로다운으로 매시간 갱신되며, 매수 기준에 도달(n_rec<=0)해도 안내한다.
+        if target_display == defense_display and (n_rec > 0 or is_warning):
             sig_name = tuning_meta.get("signal_name", "신호 자산")
             offense_ticker = tuning_meta.get("offense_ticker", "")
             offense_name = tuning_meta.get("offense_name", "")
             off_display = _format_display_name(offense_ticker, offense_name)
             curr_dd = tuning_meta.get("current_drawdown", 0.0) * 100
             b_cut = tuning_meta.get("buy_cutoff", 0.0)
-            n_rec = tuning_meta.get("needed_recovery", 0.0)
+            live_tag = " (장중 실시간)" if is_warning else ""
 
-            explanation = (
-                f"\n\n💡 *설명*: 현재 {sig_name}가 최고점 대비 {curr_dd:+.2f}% 하락해 있는 상태이므로, "
-                f"공격 자산({off_display})으로 전환하기 위한 매수 기준인 *{-b_cut:+.1f}%*에 도달하기 위해선 "
-                f"지수가 *{n_rec:+.2f}%만큼 추가 회복(상승)*해야 합니다."
-            )
+            if n_rec > 0:
+                explanation = (
+                    f"\n\n💡 *설명{live_tag}*: 현재 {sig_name}가 최고점 대비 {curr_dd:+.2f}% 하락해 있는 상태이므로, "
+                    f"공격 자산({off_display})으로 전환하기 위한 매수 기준인 *{-b_cut:+.1f}%*에 도달하기 위해선 "
+                    f"지수가 *{n_rec:+.2f}%만큼 추가 회복(상승)*해야 합니다."
+                )
+            else:
+                explanation = (
+                    f"\n\n💡 *설명{live_tag}*: 현재 {sig_name}가 최고점 대비 {curr_dd:+.2f}% 로 "
+                    f"매수 기준 *{-b_cut:+.1f}%* 에 도달했습니다. "
+                    f"장 마감 종가로 확정되면 공격 자산({off_display})으로 전환됩니다."
+                )
             summary_text += explanation
 
     blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": summary_text}})

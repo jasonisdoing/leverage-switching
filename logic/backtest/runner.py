@@ -760,6 +760,9 @@ def run_backtest(
     buy_cutoff = -settings["drawdown_buy_cutoff"] / 100
     needed_recovery = buy_cutoff - current_drawdown if current_drawdown < buy_cutoff else 0
 
+    # 장중 정보용: 오늘(미완성 봉 포함) 실시간 시그널 드로다운
+    live_drawdown = float(signal_df_full["drawdown"].iloc[-1])
+
     recommendation_data = {
         "last_date": last_date.date().isoformat(),
         "last_prices": last_prices,
@@ -770,7 +773,9 @@ def run_backtest(
             sym: (last_prices[sym] / holding_start_prices[sym] - 1) if sym in holding_start_prices else 0.0
             for sym in assets
         },
+        "holding_start_prices": holding_start_prices,
         "current_drawdown": current_drawdown,
+        "live_drawdown": live_drawdown,
         "buy_cutoff": settings["drawdown_buy_cutoff"],
         "sell_cutoff": settings["drawdown_sell_cutoff"],
         "needed_recovery": needed_recovery * 100,  # 퍼센트로 변환
@@ -794,9 +799,16 @@ def run_backtest(
         else:
             pre_switch_data["cum_return"] = 0.0
 
+    # 장중 정보용: 신호 확정과 무관하게 "가장 최근(오늘 포함) 가격"을 함께 반환한다.
+    # drop_today=True 로 신호는 어제 종가로 확정했더라도, 표시용 현재가는 오늘 실시간값을 쓰기 위함.
+    live_date = prices_full.index[-1]
+    live_prices = {sym: float(prices_full.at[live_date, sym]) for sym in assets if sym in prices_full.columns}
+
     return {
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),
+        "live_date": live_date.date().isoformat(),
+        "live_prices": live_prices,
         "final_equity_usd": round(equity_series.iloc[-1], 2),
         "final_equity_krw": round(final_krw, 0),
         "period_return": period_return,

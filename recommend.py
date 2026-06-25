@@ -183,7 +183,6 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
 
     # 확정된 보유 종목 = 마지막으로 닫힌 거래일의 신호 (장중에도 뒤집지 않음)
     display_target = last_target
-    warning_target = None  # 장중 특정 전환 종목은 더 이상 표시하지 않음 (확정 후에만 변경)
 
     # 이전 상태 로드 및 변경 여부 확인 (확정은 장 마감 후에만 의미가 있음)
     prev_state = load_previous_state(profile)
@@ -211,10 +210,20 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
     last_prices = rec_data["last_prices"]
     daily_returns = rec_data.get("daily_returns", {})
     cum_returns = rec_data.get("cum_returns", {})
-    current_dd = rec_data["current_drawdown"]
+    holding_start_prices = rec_data.get("holding_start_prices", {})
     buy_cutoff = rec_data["buy_cutoff"]
     sell_cutoff = rec_data["sell_cutoff"]
-    needed_recovery = rec_data["needed_recovery"]
+
+    # 장중(C안): 보유 종목·보유일·매매 실행은 어제 종가로 확정 유지하지만,
+    # 그 외 표시값(현재가·일간·누적·드로다운·회복/하락 필요·설명)은 오늘 실시간으로 매시간 갱신한다.
+    live_prices = result.get("live_prices", {}) if is_warning else {}
+    if is_warning and "live_drawdown" in rec_data:
+        current_dd = rec_data["live_drawdown"]
+        buy_cut_frac = -buy_cutoff / 100
+        needed_recovery = (buy_cut_frac - current_dd) * 100 if current_dd < buy_cut_frac else 0.0
+    else:
+        current_dd = rec_data["current_drawdown"]
+        needed_recovery = rec_data["needed_recovery"]
 
     if market == "kor":
         currency_prefix = ""
@@ -226,10 +235,6 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
         price_fmt = ",.2f"
 
     ticker_names = _build_ticker_names(settings, prev_state, display_target)
-
-    pre_switch_data = result.get("pre_switch_data", {})
-    pre_switch_hold_days = pre_switch_data.get("hold_days", {})
-    pre_switch_cum_return = pre_switch_data.get("cum_return")
 
     table_lines = []
     assets = []
@@ -248,13 +253,15 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
         day_ret = daily_returns.get(sym) if has_market_data else None
         c_ret = cum_returns.get(sym) if has_market_data else None
 
-        if is_warning and warning_target and sym == display_target:
-            if price is None:
-                price = pre_switch_data.get("last_price")
-            if day_ret is None:
-                day_ret = pre_switch_data.get("daily_return")
-            if pre_switch_cum_return is not None:
-                c_ret = pre_switch_cum_return
+        # 장중: 현재가/일간/누적을 오늘 실시간값으로 표시 (보유 종목·보유일은 확정 유지)
+        is_live_price = sym in live_prices and last_prices.get(sym)
+        if is_live_price:
+            confirmed_close = last_prices[sym]
+            price = live_prices[sym]
+            day_ret = live_prices[sym] / confirmed_close - 1
+            # 보유 종목의 누적 수익률도 실시간(오늘가 / 보유 시작가)으로 갱신
+            if sym == display_target and holding_start_prices.get(sym):
+                c_ret = live_prices[sym] / holding_start_prices[sym] - 1
 
         sell_cutoff_val = -sell_cutoff / 100
         needed_drop = (current_dd - sell_cutoff_val) * 100 if current_dd > sell_cutoff_val else 0
@@ -270,11 +277,17 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
         note = ""
         if sym == offense_ticker:
             if display_target == offense_ticker:
-                note = f"{signal_name}가 {needed_drop:.2f}% 더 하락 시 매도"
-            elif warning_target == offense_ticker:
-                note = f"{signal_name} 매수 조건 이미 충족 → 장 마감 후 매수 전환 예정"
+                # 공격 자산 보유 중 → 매도 기준까지 남은 하락폭 (실시간)
+                if needed_drop > 0:
+                    note = f"{signal_name}가 {needed_drop:.2f}% 더 하락 시 매도"
+                else:
+                    note = f"{signal_name} 매도 기준 도달(실시간) → 장 마감 종가 확정 시 방어 전환 예정"
             else:
-                note = f"{signal_name}가 {needed_recovery:+.2f}% 더 회복 시 매수"
+                # 방어 자산 보유 중 → 매수 기준까지 남은 회복폭 (실시간)
+                if needed_recovery > 0:
+                    note = f"{signal_name}가 {needed_recovery:+.2f}% 더 회복 시 매수"
+                else:
+                    note = f"{signal_name} 매수 기준 도달(실시간) → 장 마감 종가 확정 시 공격 전환 예정"
         else:
             note = ""
 
@@ -284,10 +297,7 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
 
         cum_text = f"  누적: {_format_metric_pct(c_ret)}"
         if sym == display_target:
-            if is_warning and warning_target:
-                h_days = pre_switch_hold_days.get(sym, 0)
-            else:
-                h_days = result.get("holding_days", 0)
+            h_days = result.get("holding_days", 0)
             if is_warning:
                 h_days += 1
             if h_days > 0:
@@ -296,7 +306,10 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
             cum_text += "(미보유)"
         table_lines.append(cum_text)
 
-        table_lines.append(f"  현재가: {_format_asset_price(price, currency_prefix, currency_suffix, price_fmt)}")
+        price_str = _format_asset_price(price, currency_prefix, currency_suffix, price_fmt)
+        if is_live_price:
+            price_str += " (장중 실시간)"
+        table_lines.append(f"  현재가: {price_str}")
         if note:
             table_lines.append(f"  비고: {note}")
         table_lines.append("")
@@ -305,9 +318,6 @@ def _recommend_switch(profile: str, settings: dict, market: str, status: str, ma
     target_display = _format_display_name(display_target, target_name)
 
     warning_target_display = None
-    if warning_target:
-        wt_name = ticker_names.get(warning_target, warning_target)
-        warning_target_display = _format_display_name(warning_target, wt_name)
 
     out_dir = Path(f"zresults/{profile}")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -402,11 +412,18 @@ def _recommend_buy(profile: str, settings: dict, market: str, status: str, marke
     def _p(v):
         return f"{format(v, price_fmt)}{suffix}" if v else "-"
 
+    # 장중(C안): 행동/평단은 종가 확정 유지, '현재가'만 오늘 실시간값으로 표시
+    live_close = report["meta"].get("live_close") if is_warning else None
+    if live_close:
+        price_line = f"  현재가: {_p(live_close)} (장중 실시간)"
+    else:
+        price_line = f"  현재가(종가): {_p(rec['last_close'])}"
+
     table_lines = [
         f"🎯 {target_display}",
         f"  진행: {rec['buys_done']}/{rec['divisions']}회차",
         f"  평단: {_p(rec['avg'])}",
-        f"  현재가(종가): {_p(rec['last_close'])}",
+        price_line,
         f"  익절 목표가: {_p(rec['target_price'])}",
     ]
 

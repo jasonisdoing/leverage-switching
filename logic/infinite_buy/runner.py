@@ -164,8 +164,13 @@ def _load_target_series(settings: dict, drop_today: bool = False):
     closes = prices[ticker]
     open_series = opens[ticker]
 
-    index = open_series.index.intersection(closes.index)
-    index = index[index >= start_bound]
+    full_index = open_series.index.intersection(closes.index)
+    full_index = full_index[full_index >= start_bound]
+    # 장중 정보용: drop_today 로 신호에서 제외되더라도 '오늘 포함' 최신 종가를 보존한다.
+    live_close = float(closes.loc[full_index[-1]]) if len(full_index) > 0 else None
+    live_date = full_index[-1].date().isoformat() if len(full_index) > 0 else None
+
+    index = full_index
     if drop_today and len(index) > 0:
         kst_today = pd.Timestamp(datetime.now(ZoneInfo("Asia/Seoul")).date())
         index = index[index < kst_today]
@@ -176,6 +181,8 @@ def _load_target_series(settings: dict, drop_today: bool = False):
         "period_start": index[0].date().isoformat(),
         "period_end": index[-1].date().isoformat(),
         "period_days": len(index),
+        "live_close": live_close,
+        "live_date": live_date,
     }
     return open_series.loc[index], closes.loc[index], meta
 
