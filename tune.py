@@ -26,15 +26,19 @@ TUNING_CONFIG: dict[str, dict] = {
         "offense": [
             {"ticker": "122630", "name": "KODEX 레버리지"},
             {"ticker": "243880", "name": "TIGER 200IT레버리지"},
+            # {"ticker": "0193W0", "name": "KODEX 삼성전자단일종목레버리지"},
+            # {"ticker": "0193T0", "name": "KODEX SK하이닉스단일종목레버리지"},
         ],
         "defense": [
             {"ticker": "CASH", "name": "현금"},
+            {"ticker": "237350", "name": "KODEX 코스피100"},
             {"ticker": "161510", "name": "PLUS 고배당주"},
             {"ticker": "091170", "name": "KODEX 은행"},
             {"ticker": "279530", "name": "KODEX 고배당주"},
             {"ticker": "484880", "name": "SOL 금융지주플러스고배당"},
             {"ticker": "140700", "name": "KODEX 보험"},
-            {"ticker": "117460", "name": "KODEX 에너지화학"},
+            {"ticker": "498860", "name": "RISE 코리아금융고배당"},
+            {"ticker": "466940", "name": "TIGER 은행고배당플러스TOP10"},
         ],
     },
     # 무한매수법: 분할 수 × 익절률 격자

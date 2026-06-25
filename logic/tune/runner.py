@@ -276,7 +276,7 @@ def run_tuning(
             f"\n❌ 튜닝을 중단합니다: 일부 defense 티커에 {required_date}부터의 데이터가 없습니다.\n"
             f"\n문제가 있는 티커:\n" + "\n".join(validation_errors) + f"\n\n해결 방법:\n"
             f"  1. tune.py의 TUNING_CONFIG에서 해당 티커를 제거하거나\n"
-            f"  2. config/{market}.json의 months_range를 줄여서 더 최근 기간만 사용하세요.\n"
+            f"  2. {config_path}의 months_range를 줄여서 더 최근 기간만 사용하세요.\n"
         )
         raise ValueError(error_msg)
     print("[데이터 검증] 모든 defense 티커 데이터 확인 완료 ✅")

@@ -180,11 +180,15 @@ def run_backtest(
 
         # 포지션 변경 시 청산
         if prev_target and prev_target != target and prev_target != "CASH":
-            sell_price = prices_today[prev_target] * (1 - sell_slip)
-            cash_usd += qty[prev_target] * sell_price
-            trade_cf[prev_target] -= qty[prev_target] * sell_price
-            qty[prev_target] = 0
-            end_val_for_seg = cash_usd + sum(qty[s] * prices_today[s] for s in assets)
+            sell_price_raw = prices_today[prev_target]
+            if not pd.isna(sell_price_raw):
+                sell_price = sell_price_raw * (1 - sell_slip)
+                cash_usd += qty[prev_target] * sell_price
+                trade_cf[prev_target] -= qty[prev_target] * sell_price
+                qty[prev_target] = 0
+            end_val_for_seg = cash_usd + sum(
+                (qty[s] * prices_today[s] if not pd.isna(prices_today[s]) else 0.0) for s in assets
+            )
 
         # 세그먼트 전환 처리: 청산 후 평가액을 사용해 종료
         if changed:
@@ -208,17 +212,19 @@ def run_backtest(
 
         # 매수
         if target != "CASH":
-            buy_price = prices_today[target] * (1 + buy_slip)
-            if buy_price <= 0:
-                raise ValueError(f"유효하지 않은 매수가입니다: {target} @ {date.date()} = {buy_price}")
-            purch_qty = int(cash_usd / buy_price)
-            if purch_qty > 0 and (prev_target != target):
-                cash_usd -= purch_qty * buy_price
-                trade_cf[target] += purch_qty * buy_price
-                qty[target] += purch_qty
+            buy_price_raw = prices_today[target]
+            if not pd.isna(buy_price_raw):
+                buy_price = buy_price_raw * (1 + buy_slip)
+                if buy_price <= 0:
+                    raise ValueError(f"유효하지 않은 매수가입니다: {target} @ {date.date()} = {buy_price}")
+                purch_qty = int(cash_usd / buy_price)
+                if purch_qty > 0 and (prev_target != target):
+                    cash_usd -= purch_qty * buy_price
+                    trade_cf[target] += purch_qty * buy_price
+                    qty[target] += purch_qty
 
         # 평가
-        position_value = {s: qty[s] * prices_today[s] for s in assets}
+        position_value = {s: (qty[s] * prices_today[s] if not pd.isna(prices_today[s]) else 0.0) for s in assets}
         total_value = cash_usd + sum(position_value.values())
         daily_ret = (total_value - prev_value) / prev_value if prev_value != 0 else 0.0
         pnl = total_value - prev_value

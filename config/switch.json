@@ -1,5 +1,5 @@
 {
-    "backtested_date": "2026-06-22",
+    "backtested_date": "2026-06-25",
     "strategy": "switch",
     "market": "kor",
     "months_range": 12,
@@ -12,8 +12,8 @@
         "name": "TIGER 200IT레버리지"
     },
     "defense": {
-        "ticker": "140700",
-        "name": "KODEX 보험"
+        "ticker": "237350",
+        "name": "KODEX 코스피100"
     },
     "slippage": 0.5,
     "drawdown_buy_cutoff": 3.0,
