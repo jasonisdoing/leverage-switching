@@ -37,13 +37,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 APP_DIR=/home/ubuntu/apps/leverage-switching
 APP_TYPE=leverage-switching
 
-# ── 튜닝은 로컬에서 수동 실행 후 config 커밋으로 반영 (자동 cron 없음) ──
-
-# ── switch 전략 (스위칭, 한국 시장 월-금) ─────────────────────────
-# 09:05 ~ 16:05 KST 매시간 5분 (총 8회)
-5 9-16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_switch $APP_DIR/.venv/bin/python recommend.py switch --slack >> logs/cron/leverage_switch.log 2>&1
-
-# ── buy 전략 (무한매수법, 한국 시장 월-금) ────────────────────────
-# ⏸️ 현재 미사용: 무한매수법 Slack 알림 중지(일시 정지). 재개하려면 아래 줄 주석을 해제하세요.
-# 09:05 ~ 16:05 KST 매시간 5분 (총 8회)
-# 5 9-16 * * 1-5 cd $APP_DIR && mkdir -p logs/cron && $APP_DIR/.venv/bin/python infra/cron/run_batch.py leverage_buy $APP_DIR/.venv/bin/python recommend.py buy --slack >> logs/cron/leverage_buy.log 2>&1
+# ⚠️ 이 앱은 폐기(retired)되었습니다. 전략은 momentum-etf 로 이전되었습니다.
+#    활성 cron 잡 없음. VM 에 설치된 leverage-switching cron 블록을 제거하려면:
+#        bash ~/apps/leverage-switching/infra/cron/install.sh --uninstall
+#    이후 운영은 momentum-etf 의 leverage_switch 잡(서버 scheduler)이 담당합니다.

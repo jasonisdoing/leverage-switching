@@ -1,9 +1,13 @@
 name: Deploy to Oracle VM
 
+# ⚠️ 이 앱은 폐기(retired)되어 momentum-etf 로 이전되었습니다.
+# 자동 배포를 중지합니다(수동 실행만 가능). 더 이상 이 앱을 VM 에 배포하지 마세요.
 on:
-  push:
-    branches:
-      - upgrade   # upgrade 브랜치 푸시 시 자동 배포
+  workflow_dispatch: {}
+  # 폐기 전 자동 배포(비활성화됨):
+  # push:
+  #   branches:
+  #     - upgrade
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"

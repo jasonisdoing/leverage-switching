@@ -1,5 +1,15 @@
 # Leverage Strategies (Switch / Buy)
 
+> ## ⚠️ 폐기됨 (RETIRED, 2026-06)
+> 이 저장소는 **더 이상 운영되지 않습니다.** 레버리지 스위칭/무한매수법 전략은
+> **[momentum-etf](https://github.com/jasonisdoing/momentum-etf)** 의 `leverage/` 패키지로 이전되었고,
+> 추천 배치는 momentum-etf 의 서버 scheduler(`leverage_switch` 잡)에서 실행됩니다.
+> - 운영/UI/데이터/Slack: momentum-etf 사용
+> - 이 repo: 아카이브 예정. 자동 배포(`deploy.yml`)는 비활성화됨.
+> - VM cron 제거: `bash ~/apps/leverage-switching/infra/cron/install.sh --uninstall`
+>
+> 이전 상세 내용은 momentum-etf 의 `docs/leverage_migration.md` 참고.
+
 ## 1. 전략 개요 (Strategy)
 한국 레버리지 ETF(KODEX 레버리지 등)를 대상으로 두 가지 전략을 운용합니다.
 
